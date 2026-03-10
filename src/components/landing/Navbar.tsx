@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom"; // Added Link import
 
 const navLinks = [
   { label: "Docs", href: "#" },
   { label: "Pricing", href: "#" },
-  { label: "Sign In", href: "#" },
+  { label: "Sign In", href: "/auth" }, // Updated path to point to auth
 ];
 
 export default function Navbar() {
@@ -28,7 +29,7 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="text-primary">
             <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
             <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
@@ -38,24 +39,24 @@ export default function Navbar() {
           <span className="font-satoshi text-lg font-bold text-foreground">
             Blueprint<span className="text-primary">.dev</span>
           </span>
-        </a>
+        </Link>
 
         <div className="flex items-center gap-8">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.label}
-              href={link.href}
+              to={link.href}
               className="text-body text-muted-foreground hover:text-foreground transition-colors"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
-          <a
-            href="#"
+          <Link
+            to="/auth"
             className="h-10 px-5 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-medium text-body hover:scale-[1.02] hover:brightness-110 transition-all"
           >
             Get Started
-          </a>
+          </Link>
         </div>
       </div>
     </motion.nav>

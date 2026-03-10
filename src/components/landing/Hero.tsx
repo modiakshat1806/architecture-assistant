@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom"; // Added Link import
 import DependencyGraphVisual from "./DependencyGraphVisual";
 
 export default function Hero() {
@@ -34,12 +35,13 @@ export default function Hero() {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mt-8 flex gap-4"
           >
-            <a
-              href="#"
+            {/* Updated to Link pointing to /auth */}
+            <Link
+              to="/auth"
               className="h-12 px-8 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-body hover:scale-[1.02] hover:brightness-110 transition-all glow-orange"
             >
               Upload PRD
-            </a>
+            </Link>
             <a
               href="#"
               className="h-12 px-8 inline-flex items-center justify-center rounded-lg border border-border text-foreground font-medium text-body hover:bg-overlay transition-all"
