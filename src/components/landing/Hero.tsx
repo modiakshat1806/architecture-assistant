@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import DependencyGraphVisual from "./DependencyGraphVisual";
 
 export default function Hero() {
@@ -40,12 +41,12 @@ export default function Hero() {
             >
               Upload PRD
             </a>
-            <a
-              href="#"
+            <Link
+              to="/demo"
               className="h-12 px-8 inline-flex items-center justify-center rounded-lg border border-border text-foreground font-medium text-body hover:bg-overlay transition-all"
             >
               View Demo
-            </a>
+            </Link>
           </motion.div>
 
           <motion.div
