@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PageTransition } from "../ui/PageTransition";
 
 const navItems = [
   { name: "Projects", path: "/dashboard", icon: FolderGit2 },
@@ -117,8 +118,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Scrollable Page Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-zinc-950">
-          {children}
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-zinc-950">
+        <PageTransition>
+        {children}
+        </PageTransition>
         </div>
       </main>
     </div>

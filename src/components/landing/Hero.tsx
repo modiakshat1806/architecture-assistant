@@ -1,7 +1,7 @@
+// src/components/landing/Hero.tsx
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom"; // Added Link import
 import { Link } from "react-router-dom";
-import DependencyGraphVisual from "./DependencyGraphVisual";
+import DependencyGraph3D from "./DependencyGraph3D";
 
 export default function Hero() {
   return (
@@ -36,15 +36,11 @@ export default function Hero() {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mt-8 flex gap-4"
           >
-            {/* Updated to Link pointing to /auth */}
-            <Link
-              to="/auth"
+            <a
+              href="#"
               className="h-12 px-8 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-body hover:scale-[1.02] hover:brightness-110 transition-all glow-orange"
             >
               Upload PRD
-            </Link>
-            <a
-              href="#"
             </a>
             <Link
               to="/demo"
@@ -81,7 +77,7 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.3 }}
           className="relative hidden lg:block"
         >
-          <DependencyGraphVisual />
+          <DependencyGraph3D />
         </motion.div>
       </div>
 

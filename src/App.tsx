@@ -16,6 +16,7 @@ import Tasks from "./pages/Tasks.tsx";
 import CodeGenerator from "./pages/CodeGenerator.tsx";
 import Chat from "./pages/Chat.tsx";
 import Automation from "./pages/Automation.tsx";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -25,20 +26,22 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/demo" element={<Demo />} />
-          <Route path="/auth" element={<Auth />} />             {/* Add Auth Route */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/upload" element={<PRDUpload />} />
-          <Route path="/dashboard/processing" element={<Processing />} />
-          <Route path="/dashboard/analysis" element={<Analysis />} />
-          <Route path="/dashboard/architecture" element={<Architecture />} />
-          <Route path="/dashboard/tasks" element={<Tasks />} />
-          <Route path="/dashboard/code" element={<CodeGenerator />} />
-          <Route path="/dashboard/chat" element={<Chat />} />
-          <Route path="/dashboard/automation" element={<Automation />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/demo" element={<Demo />} />
+            <Route path="/auth" element={<Auth />} />             {/* Add Auth Route */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/upload" element={<PRDUpload />} />
+            <Route path="/dashboard/processing" element={<Processing />} />
+            <Route path="/dashboard/analysis" element={<Analysis />} />
+            <Route path="/dashboard/architecture" element={<Architecture />} />
+            <Route path="/dashboard/tasks" element={<Tasks />} />
+            <Route path="/dashboard/code" element={<CodeGenerator />} />
+            <Route path="/dashboard/chat" element={<Chat />} />
+            <Route path="/dashboard/automation" element={<Automation />} />
+          </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

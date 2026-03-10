@@ -1,4 +1,5 @@
-import { useState } from "react";
+// src/pages/Architecture.tsx
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -14,21 +15,86 @@ import {
   Download,
   Code2
 } from "lucide-react";
+import { 
+  ReactFlow, 
+  Background, 
+  Controls, 
+  useNodesState, 
+  useEdgesState, 
+  Handle, 
+  Position 
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
-const nodes = [
-  { id: "gateway", name: "API Gateway", type: "gateway", icon: Globe, description: "Routes incoming traffic to the appropriate microservices.", tech: "Kong / Nginx" },
-  { id: "auth", name: "Auth Service", type: "service", icon: Lock, description: "Handles user login, registration, and JWT validation.", tech: "Node.js + Express" },
-  { id: "users_db", name: "Users DB", type: "database", icon: Database, description: "Stores user profiles and credentials securely.", tech: "PostgreSQL" },
-  { id: "payments", name: "Payment Service", type: "service", icon: CreditCard, description: "Processes subscriptions and invoices via Stripe.", tech: "Go / Fiber" },
-  { id: "cache", name: "Redis Cache", type: "cache", icon: Server, description: "Caches frequent API responses to reduce latency.", tech: "Redis" },
+// ==========================================
+// 1. CUSTOM NODE DEFINITION
+// ==========================================
+// This matches your Blueprint design system
+const BlueprintNode = ({ data, selected }: any) => {
+  const Icon = data.icon;
+  return (
+    <div className="flex flex-col items-center gap-2 group transition-all w-32">
+      <Handle type="target" position={Position.Top} className="w-2 h-2 bg-primary border-none" />
+      
+      <div className={`
+        w-16 h-16 rounded-xl border-2 flex items-center justify-center transition-all duration-200 bg-zinc-950
+        ${selected 
+          ? "border-primary text-primary shadow-[0_0_20px_-5px_hsl(var(--accent-orange)/0.5)] scale-110 z-10" 
+          : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white"}
+      `}>
+        <Icon className="w-8 h-8" />
+      </div>
+      
+      <span className={`text-xs font-medium px-2 py-1 rounded-md text-center ${selected ? "bg-primary/10 text-primary" : "bg-zinc-900 text-zinc-400"}`}>
+        {data.label}
+      </span>
+
+      <Handle type="source" position={Position.Bottom} className="w-2 h-2 bg-primary border-none" />
+    </div>
+  );
+};
+
+const nodeTypes = { blueprint: BlueprintNode };
+
+// ==========================================
+// 2. INITIAL DIAGRAM DATA
+// ==========================================
+const initialNodes = [
+  { id: "gateway", type: "blueprint", position: { x: 250, y: 0 }, data: { label: "API Gateway", icon: Globe, type: "gateway", description: "Routes incoming traffic to the appropriate microservices.", tech: "Kong / Nginx" } },
+  { id: "auth", type: "blueprint", position: { x: 100, y: 150 }, data: { label: "Auth Service", icon: Lock, type: "service", description: "Handles user login, registration, and JWT validation.", tech: "Node.js + Express" } },
+  { id: "payments", type: "blueprint", position: { x: 400, y: 150 }, data: { label: "Payment Service", icon: CreditCard, type: "service", description: "Processes subscriptions and invoices via Stripe.", tech: "Go / Fiber" } },
+  { id: "users_db", type: "blueprint", position: { x: 100, y: 300 }, data: { label: "Users DB", icon: Database, type: "database", description: "Stores user profiles and credentials securely.", tech: "PostgreSQL" } },
+  { id: "cache", type: "blueprint", position: { x: 400, y: 300 }, data: { label: "Redis Cache", icon: Server, type: "cache", description: "Caches frequent API responses to reduce latency.", tech: "Redis" } },
 ];
 
+const initialEdges = [
+  { id: 'e1-2', source: 'gateway', target: 'auth', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'e1-3', source: 'gateway', target: 'payments', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'e2-4', source: 'auth', target: 'users_db', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'e3-5', source: 'payments', target: 'cache', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+];
+
+// ==========================================
+// 3. MAIN COMPONENT
+// ==========================================
 export default function Architecture() {
-  const [selectedNode, setSelectedNode] = useState(nodes[0]);
   const navigate = useNavigate();
+  
+  // React Flow state
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  
+  // Detail panel state
+  const [selectedNodeData, setSelectedNodeData] = useState(initialNodes[0].data);
+
+  // Update right panel when a node is clicked
+  const onNodeClick = useCallback((event: React.MouseEvent, node: any) => {
+    setSelectedNodeData(node.data);
+  }, []);
 
   return (
     <DashboardLayout>
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">System Architecture</h1>
@@ -38,7 +104,7 @@ export default function Architecture() {
           <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2">
             <Download className="w-4 h-4" /> Export Diagram
           </Button>
-          <Button className="bg-primary hover:brightness-110 text-white gap-2">
+          <Button onClick={() => navigate('/dashboard/code')} className="bg-primary hover:brightness-110 text-white gap-2 glow-orange">
             <Code2 className="w-4 h-4" /> Generate Code
           </Button>
         </div>
@@ -46,87 +112,60 @@ export default function Architecture() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)] min-h-[600px]">
         
+        {/* Left Panel: React Flow Canvas */}
         <Card className="lg:col-span-2 bg-zinc-900 border-zinc-800 flex flex-col relative overflow-hidden">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f1a_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f1a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
-          
           <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50 relative z-10">
             <CardTitle className="text-white text-sm flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-primary-500" />
-              Service Topology
+              <Cloud className="w-4 h-4 text-primary" />
+              Service Topology (Interactive)
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="flex-1 p-8 relative z-10 flex items-center justify-center">
-            <div className="relative w-full max-w-lg aspect-video">
-              {nodes.map((node, index) => {
-                const isSelected = selectedNode.id === node.id;
-                const Icon = node.icon;
-                
-                const positions = [
-                  "top-0 left-1/2 -translate-x-1/2",
-                  "top-1/2 left-0 -translate-y-1/2",
-                  "bottom-0 left-1/4",              
-                  "top-1/2 right-0 -translate-y-1/2",
-                  "bottom-0 right-1/4"               
-                ];
-
-                return (
-                  <button
-                    key={node.id}
-                    onClick={() => setSelectedNode(node)}
-                    className={`absolute ${positions[index]} flex flex-col items-center gap-2 group transition-all`}
-                  >
-                    <div className={`
-                      w-16 h-16 rounded-xl border-2 flex items-center justify-center transition-all duration-200
-                      ${isSelected 
-                        ? "bg-primary-600/20 border-primary-500 text-primary-400 shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)] scale-110 z-10" 
-                        : "bg-zinc-950 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white"}
-                    `}>
-                      <Icon className="w-8 h-8" />
-                    </div>
-                    <span className={`text-xs font-medium px-2 py-1 rounded-md ${isSelected ? "bg-primary-500/10 text-primary-400" : "bg-zinc-900 text-zinc-400"}`}>
-                      {node.name}
-                    </span>
-                  </button>
-                );
-              })}
-
-              <svg className="absolute inset-0 w-full h-full -z-10 pointer-events-none stroke-zinc-700" style={{ strokeWidth: 2, strokeDasharray: '4 4' }}>
-                <path d="M 250 50 L 100 150" />
-                <path d="M 250 50 L 400 150" />
-                <path d="M 100 180 L 150 250" />
-                <path d="M 400 180 L 350 250" />
-              </svg>
-            </div>
+          <CardContent className="flex-1 p-0 relative z-10 w-full h-full">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onNodeClick={onNodeClick}
+              nodeTypes={nodeTypes}
+              fitView
+              className="bg-zinc-950"
+              colorMode="dark"
+            >
+              <Background color="#3f3f46" gap={24} size={1} />
+              <Controls className="fill-zinc-400 text-zinc-400" />
+            </ReactFlow>
           </CardContent>
         </Card>
 
+        {/* Right Panel: Node Details */}
         <Card className="lg:col-span-1 bg-zinc-900 border-zinc-800 flex flex-col">
           <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
             <CardTitle className="text-white text-sm">Component Details</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-primary-400">
-                <selectedNode.icon className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                <selectedNodeData.icon className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">{selectedNode.name}</h2>
-                <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">{selectedNode.type}</span>
+                <h2 className="text-xl font-bold text-white">{selectedNodeData.label}</h2>
+                <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">{selectedNodeData.type}</span>
               </div>
             </div>
 
             <div>
               <h3 className="text-sm font-medium text-white mb-2">Description</h3>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                {selectedNode.description}
+                {selectedNodeData.description}
               </p>
             </div>
 
             <div>
               <h3 className="text-sm font-medium text-white mb-2">Recommended Tech Stack</h3>
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-zinc-950 border border-zinc-800 text-sm text-primary-400 font-mono">
-                {selectedNode.tech}
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-zinc-950 border border-zinc-800 text-sm text-primary font-mono">
+                {selectedNodeData.tech}
               </div>
             </div>
 
@@ -137,7 +176,7 @@ export default function Architecture() {
                   <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-zinc-950 border border-zinc-800">
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold px-2 py-1 rounded bg-green-500/10 text-green-400">GET</span>
-                      <span className="text-xs text-zinc-300 font-mono">/api/v1/{selectedNode.name.toLowerCase().split(' ')[0]}</span>
+                      <span className="text-xs text-zinc-300 font-mono">/api/v1/{selectedNodeData.label.toLowerCase().split(' ')[0]}</span>
                     </div>
                   </div>
                 ))}
