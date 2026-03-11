@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { ListTodo, ArrowRight, CircleDashed, Filter, BookOpen } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // BUG 10 FIXED: Grouped tasks into actual User Stories with aggregated Fibonacci Story Points
 const BACKLOG_STORIES = [
@@ -42,6 +43,7 @@ const BACKLOG_STORIES = [
 
 export default function Tasks() {
   const navigate = useNavigate();
+  const { toast } = useToast(); // <-- Init hook
 
   return (
     <DashboardLayout>
@@ -54,7 +56,12 @@ export default function Tasks() {
           <p className="text-zinc-400 mt-1">Review AI-generated User Stories and effort estimations.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2">
+          {/* WIRED UP FILTER BUTTON */}
+          <Button 
+            variant="outline" 
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
+            onClick={() => toast({ title: "Filters", description: "Opening advanced backlog filters..." })}
+          >
             <Filter className="w-4 h-4" /> Filter
           </Button>
           <Button onClick={() => navigate('/dashboard/sprints')} className="bg-primary hover:brightness-110 text-white gap-2 glow-orange">

@@ -1,4 +1,6 @@
+// src/components/landing/CTASection.tsx
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom"; // Added Link
 
 export default function CTASection() {
   return (
@@ -33,18 +35,19 @@ export default function CTASection() {
           transition={{ delay: 0.2 }}
           className="mt-8 flex justify-center gap-4"
         >
-          <a
-            href="#"
+          {/* WIRED LINKS INSTEAD OF DEAD <a> TAGS */}
+          <Link
+            to="/auth"
             className="h-12 px-8 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-body hover:scale-[1.02] hover:brightness-110 transition-all glow-orange"
           >
             Get Started Free
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/demo"
             className="h-12 px-8 inline-flex items-center justify-center rounded-lg border border-border text-foreground font-medium text-body hover:bg-overlay transition-all"
           >
             View Demo
-          </a>
+          </Link>
         </motion.div>
       </div>
     </section>

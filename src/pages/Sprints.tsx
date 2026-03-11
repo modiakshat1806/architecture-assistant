@@ -17,6 +17,7 @@ import {
   BookOpen
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 // BUG 10 FIXED: Using Fibonacci Story points instead of hours, and assigning tasks to Stories
 const mockTasks = [
@@ -30,6 +31,7 @@ const mockTasks = [
 export default function Sprints() {
   const [tasks, setTasks] = useState(mockTasks);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const { toast } = useToast(); // <-- INITIALIZED TOAST HERE
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedTaskId(id);
@@ -89,7 +91,16 @@ export default function Sprints() {
             <GripVertical className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="text-xs font-mono text-zinc-500">{task.id}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white -mr-2 -mt-2">
+          {/* WIRED UP 3-DOTS BUTTON HERE */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 text-zinc-500 hover:text-white -mr-2 -mt-2"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevents dragging when clicking the button
+              toast({ title: "Task Options", description: `Opening settings for ${task.id}...` });
+            }}
+          >
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </div>
@@ -131,10 +142,19 @@ export default function Sprints() {
           <p className="text-zinc-400 mt-1">Manage the engineering tickets generated from your architecture.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2">
+          {/* WIRED UP FILTER BUTTON HERE */}
+          <Button 
+            variant="outline" 
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
+            onClick={() => toast({ title: "Filters", description: "Opening sprint board filters..." })}
+          >
             <Filter className="w-4 h-4" /> Filter
           </Button>
-          <Button className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange">
+          {/* WIRED UP NEW TASK BUTTON HERE */}
+          <Button 
+            className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
+            onClick={() => toast({ title: "Create Task", description: "Opening manual task creation modal..." })}
+          >
             <Plus className="w-4 h-4" /> New Task
           </Button>
         </div>

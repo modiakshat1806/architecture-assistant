@@ -8,19 +8,23 @@ import {
   ListTodo, 
   CalendarDays, 
   Network, 
-  GitMerge, // <-- Added GitMerge for Traceability
+  GitMerge, 
   Code2, 
   TestTube, 
   LogOut,
   Menu,
   Bell,
-  User
+  User,
+  Settings,
+  HelpCircle,
+  Search,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageTransition } from "../ui/PageTransition";
-// Added for the Avatar dropdown (BUG 2)
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { name: "Projects", path: "/dashboard", icon: FolderGit2 },
@@ -28,7 +32,7 @@ const navItems = [
   { name: "Tasks", path: "/dashboard/tasks", icon: ListTodo },
   { name: "Sprint Planner", path: "/dashboard/sprints", icon: CalendarDays },
   { name: "Architecture", path: "/dashboard/architecture", icon: Network },
-  { name: "Traceability", path: "/dashboard/traceability", icon: GitMerge }, // <-- ADDED TRACEABILITY LINK
+  { name: "Traceability", path: "/dashboard/traceability", icon: GitMerge },
   { name: "Code Generator", path: "/dashboard/code", icon: Code2 },
   { name: "Testing", path: "/dashboard/testing", icon: TestTube },
   { name: "Chat & Clarify", path: "/dashboard/chat", icon: FileText },
@@ -38,101 +42,151 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { toast } = useToast();
 
-  // BUG 6 FIXED: Dynamically get the page name based on the URL
   const getPageName = () => {
     const currentItem = navItems.find(item => item.path === location.pathname);
     return currentItem ? currentItem.name : "Overview";
   };
 
+  const handleLogout = () => {
+    toast({ title: "Logging out...", description: "Redirecting to landing page." });
+    setTimeout(() => navigate("/"), 1000);
+  };
+
+  const handleHelp = () => {
+    toast({ title: "Help & Support", description: "Opening support documentation..." });
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row">
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950 text-white">
-        <div className="flex items-center gap-2">
+    // Set font-satoshi here so the entire dashboard inherits the premium typography
+    <div className="flex h-screen bg-canvas overflow-hidden font-satoshi">
+      
+      {/* Mobile Header (Only visible on small screens) */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-border-subtle bg-bg-surface text-foreground absolute top-0 left-0 right-0 z-30">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Layout className="w-6 h-6 text-primary" />
           <span className="font-bold">Blueprint.dev</span>
-        </div>
+        </Link>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           <Menu className="w-6 h-6" />
         </Button>
       </div>
 
+      {/* Sidebar */}
       <aside className={`
-        ${isMobileMenuOpen ? "block" : "hidden"} 
-        md:block w-full md:w-64 bg-zinc-900 border-r border-zinc-800 flex-shrink-0 transition-all duration-300 z-20
+        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} 
+        md:translate-x-0 fixed md:static inset-y-0 left-0 z-40 w-64 bg-surface border-r border-border-subtle flex flex-col transition-transform duration-300
+        pt-16 md:pt-0 /* Account for mobile header height */
       `}>
-        <div className="h-full flex flex-col">
-          <div className="hidden md:flex items-center gap-2 p-6 border-b border-zinc-800 text-white">
-            <Layout className="w-6 h-6 text-primary" />
-            <span className="text-xl font-bold tracking-tight">Blueprint.dev</span>
-          </div>
+        {/* Desktop Logo */}
+        <Link to="/" className="hidden md:flex items-center gap-2 p-6 border-b border-border-subtle text-foreground hover:bg-overlay transition-colors">
+          <Layout className="w-6 h-6 text-primary" />
+          <span className="text-xl font-bold tracking-tight">Blueprint.dev</span>
+        </Link>
 
-          <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link key={item.name} to={item.path} onClick={() => setIsMobileMenuOpen(false)}>
-                  <div className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium
-                    ${isActive 
-                      ? "bg-primary/10 text-primary" 
-                      : "text-zinc-400 hover:bg-zinc-800 hover:text-white"}
-                  `}>
-                    <item.icon className={`w-5 h-5 ${isActive ? "text-primary" : "text-zinc-500"}`} />
-                    {item.name}
-                  </div>
-                </Link>
-              );
-            })}
-          </nav>
+        {/* Main Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link key={item.name} to={item.path} onClick={() => setIsMobileMenuOpen(false)}>
+                <div className={`
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium
+                  ${isActive 
+                    ? "bg-primary/10 text-primary" 
+                    : "text-text-secondary hover:bg-overlay hover:text-foreground"}
+                `}>
+                  <item.icon className={`w-5 h-5 ${isActive ? "text-primary" : "text-text-muted"}`} />
+                  {item.name}
+                </div>
+              </Link>
+            );
+          })}
+        </nav>
 
-          {/* BUG 3 FIXED: Removed Settings link entirely, just kept a clean user profile card at the bottom */}
-          <div className="p-4 border-t border-zinc-800">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-zinc-950 border border-zinc-800">
-               <Avatar className="w-8 h-8">
-                 <AvatarImage src="https://github.com/shadcn.png" />
-                 <AvatarFallback>U</AvatarFallback>
-               </Avatar>
-               <div className="flex flex-col">
-                 <span className="text-sm font-medium text-white leading-none">Engineering</span>
-                 <span className="text-xs text-zinc-500 mt-1">Free Plan</span>
-               </div>
+        {/* Footer Navigation (Settings & Help) */}
+        <div className="p-4 border-t border-border-subtle space-y-1">
+          <Link to="/dashboard" onClick={() => toast({ title: "Settings", description: "Workspace settings coming soon." })}>
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-text-secondary hover:bg-overlay hover:text-foreground">
+              <Settings className="w-5 h-5 text-text-muted" />
+              Settings
             </div>
-          </div>
+          </Link>
+          <button onClick={handleHelp} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-text-secondary hover:bg-overlay hover:text-foreground">
+            <HelpCircle className="w-5 h-5 text-text-muted" />
+            Help & Support
+          </button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <header className="hidden md:flex items-center justify-between px-8 py-4 border-b border-zinc-800 bg-zinc-950">
-          <div className="flex items-center gap-4 text-zinc-400 text-sm">
-            <span>Workspace</span>
-            <span>/</span>
-            {/* BUG 6 FIXED: Shows dynamic page name here */}
-            <span className="text-white font-medium">{getPageName()}</span>
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative pt-16 md:pt-0">
+        
+        {/* Top Header */}
+        <header className="hidden md:flex h-16 border-b border-border-subtle bg-canvas/50 backdrop-blur-md items-center justify-between px-8 z-20">
+          
+          {/* Breadcrumb & Global Search */}
+          <div className="flex items-center gap-8 flex-1">
+            <div className="flex items-center gap-2 text-text-muted text-sm font-medium">
+              <span>Workspace</span>
+              <span>/</span>
+              <span className="text-foreground">{getPageName()}</span>
+            </div>
+            
+            <div className="flex-1 max-w-md relative group hidden lg:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Search projects or tasks (⌘K)..." 
+                className="w-full bg-overlay border border-border-subtle rounded-lg py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-all placeholder:text-text-muted"
+                onClick={() => toast({ title: "Search", description: "Global search modal will open here." })}
+              />
+            </div>
           </div>
           
+          {/* Actions & Profile */}
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative text-text-secondary hover:text-foreground hover:bg-overlay"
+              onClick={() => toast({ title: "Notifications", description: "You're all caught up! No new alerts." })}
+            >
               <Bell className="w-5 h-5" />
+              {/* Notification dot indicator */}
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
             </Button>
             
-            {/* BUG 2 FIXED: Interactive Dropdown for the Avatar */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Avatar className="w-8 h-8 border border-zinc-700 cursor-pointer hover:border-zinc-500 transition-colors">
-                  <AvatarImage src="https://github.com/shadcn.png" />
-                  <AvatarFallback>U</AvatarFallback>
-                </Avatar>
+                <Button variant="ghost" className="pl-2 pr-1 gap-2 hover:bg-overlay rounded-full group h-10">
+                  <Avatar className="w-7 h-7 border border-border-subtle group-hover:border-primary/50 transition-all">
+                    <AvatarImage src="https://github.com/shadcn.png" />
+                    <AvatarFallback>EN</AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="w-4 h-4 text-text-muted group-hover:text-foreground transition-colors" />
+                </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-zinc-200">
-                <DropdownMenuItem className="cursor-pointer hover:bg-zinc-800 hover:text-white">
-                  <User className="mr-2 h-4 w-4" />
+              <DropdownMenuContent align="end" className="w-56 bg-surface border-border-subtle text-foreground">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">Engineering Team</p>
+                    <p className="text-xs leading-none text-text-muted">Pro Plan</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-border-subtle" />
+                <DropdownMenuItem 
+                  className="cursor-pointer hover:bg-overlay focus:bg-overlay focus:text-foreground"
+                  onClick={() => toast({ title: "Account Settings", description: "Opening user profile settings..." })}
+                >
+                  <User className="mr-2 h-4 w-4 text-text-muted" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-zinc-800" />
+                <DropdownMenuSeparator className="bg-border-subtle" />
                 <DropdownMenuItem 
-                  className="cursor-pointer text-red-400 focus:text-red-400 hover:bg-red-500/10"
-                  onClick={() => navigate('/auth')}
+                  className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                  onClick={handleLogout}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
@@ -142,12 +196,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-zinc-950 custom-scrollbar">
+        {/* Page Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-canvas custom-scrollbar">
           <PageTransition>
             {children}
           </PageTransition>
         </div>
       </main>
+      
+      {/* Mobile Menu Overlay Background */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
     </div>
   );
 }

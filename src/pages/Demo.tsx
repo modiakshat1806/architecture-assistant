@@ -1,72 +1,73 @@
 // src/pages/Demo.tsx
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, FileSearch, MessageSquare, ListChecks, Calendar,
-  Network, GitBranch, Code2, FlaskConical, Zap, ChevronLeft, ChevronRight,
+  Network, GitBranch, Code2, FlaskConical, Zap,
   ArrowRight, CheckCircle2, CircleDashed, Clock, Folder, FileCode2, FileJson, 
-  Terminal, Download, GitMerge, FileText, Server, Database, Globe
+  GitMerge, FileText, Server, Database, Globe, BookOpen,
+  Lock, CreditCard, Github, Trello, Slack, AlertCircle, Layout, Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { demoProject, demoAnalysis, demoChatMessages } from '@/data/demo/project';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import Testing from '@/pages/Testing';
+import { ReactFlow, Background, Controls, Handle, Position, MarkerType } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
 type DemoPage = 'overview' | 'analysis' | 'chat' | 'tasks' | 'sprints' | 'architecture' | 'traceability' | 'code' | 'tests' | 'automation';
 
 const navItems: { key: DemoPage; label: string; icon: React.ElementType }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'analysis', label: 'PRD Analysis', icon: FileSearch },
-  { key: 'chat', label: 'Clarification', icon: MessageSquare },
   { key: 'tasks', label: 'Tasks', icon: ListChecks },
   { key: 'sprints', label: 'Sprints', icon: Calendar },
   { key: 'architecture', label: 'Architecture', icon: Network },
   { key: 'traceability', label: 'Traceability', icon: GitBranch },
   { key: 'code', label: 'Code Generator', icon: Code2 },
   { key: 'tests', label: 'Testing', icon: FlaskConical },
+  { key: 'chat', label: 'Chat & Clarify', icon: MessageSquare },
   { key: 'automation', label: 'Automation', icon: Zap },
 ];
 
 function DemoBanner() {
   return (
-    <div className="sticky top-0 z-50 flex items-center justify-between px-4 py-2 bg-accent-orange-dim border-b border-primary/30">
-      <p className="text-body text-foreground font-medium">
-        Demo Mode — Exploring the <span className="text-primary">Food Delivery Platform</span> project
-      </p>
-      <Link
-        to="/auth"
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary text-primary-foreground text-label-sm font-medium hover:bg-primary/90 transition-colors"
-      >
-        Sign Up Free <ArrowRight className="h-3 w-3" />
-      </Link>
+    <div className="flex items-center justify-between px-6 py-2.5 bg-primary/10 border-b border-primary/20 text-primary">
+      <div className="flex items-center gap-2">
+        <AlertCircle className="w-4 h-4" />
+        <p className="text-sm font-medium">
+          You are viewing a read-only Demo of the <strong>Food Delivery Platform</strong> project.
+        </p>
+      </div>
     </div>
   );
 }
 
+// --- OVERVIEW, ANALYSIS, CHAT PANELS ---
 function OverviewPanel() {
   const p = demoProject;
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-display-lg font-satoshi text-foreground">{p.name}</h2>
-        <p className="text-body text-muted-foreground mt-2 max-w-2xl">{p.description}</p>
+        <h2 className="text-3xl font-bold text-white tracking-tight">{p.name}</h2>
+        <p className="text-zinc-400 mt-1 max-w-2xl">{p.description}</p>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'PRD Health', value: `${p.healthScore} / 100`, color: 'text-primary' },
-          { label: 'Completeness', value: `${p.completeness}%`, color: 'text-accent-blue' },
-          { label: 'Complexity', value: p.complexity, color: 'text-accent-yellow' },
+          { label: 'Completeness', value: `${p.completeness}%`, color: 'text-blue-400' },
+          { label: 'Complexity', value: p.complexity, color: 'text-amber-400' },
         ].map(m => (
-          <div key={m.label} className="rounded-lg border border-border bg-surface p-4">
-            <p className="text-label-sm text-muted-foreground uppercase tracking-wider">{m.label}</p>
-            <p className={cn('text-display-lg font-satoshi mt-1', m.color)}>{m.value}</p>
+          <div key={m.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <p className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-1">{m.label}</p>
+            <p className={cn('text-3xl font-bold', m.color)}>{m.value}</p>
           </div>
         ))}
       </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Features', value: p.features.length },
@@ -74,28 +75,22 @@ function OverviewPanel() {
           { label: 'Sprints Planned', value: p.sprintCount },
           { label: 'Ambiguities Found', value: demoAnalysis.ambiguities.length },
         ].map(s => (
-          <div key={s.label} className="rounded-lg border border-border bg-surface p-4">
-            <p className="text-label-sm text-muted-foreground">{s.label}</p>
-            <p className="text-heading-md text-foreground font-satoshi mt-1">{s.value}</p>
+          <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <p className="text-xs text-zinc-500 font-medium mb-1">{s.label}</p>
+            <p className="text-2xl text-white font-bold">{s.value}</p>
           </div>
         ))}
       </div>
-
       <div>
-        <h3 className="text-heading-md text-foreground font-satoshi mb-3">Features</h3>
+        <h3 className="text-xl font-bold text-white mb-4">Core Features</h3>
         <div className="space-y-2">
           {p.features.map(f => (
-            <div key={f.id} className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 hover:border-border-emphasis transition-colors">
-              <span className="text-body text-foreground">{f.name}</span>
-              <div className="flex items-center gap-4 text-label-sm text-muted-foreground">
+            <div key={f.id} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-700 transition-colors">
+              <span className="text-sm font-medium text-white">{f.name}</span>
+              <div className="flex items-center gap-4 text-xs text-zinc-400">
                 <span>{f.storyCount} stories</span>
                 <span>{f.taskCount} tasks</span>
-                <span className={cn(
-                  'px-2 py-0.5 rounded border text-label-sm font-mono',
-                  f.complexity === 'Critical' ? 'border-accent-red/30 text-accent-red bg-accent-red/10' :
-                  f.complexity === 'High' ? 'border-primary/30 text-primary bg-primary/10' :
-                  'border-accent-yellow/30 text-accent-yellow bg-accent-yellow/10'
-                )}>
+                <span className={cn('px-2 py-1 rounded-md font-mono font-bold', f.complexity === 'Critical' ? 'text-red-400 bg-red-500/10' : f.complexity === 'High' ? 'text-primary bg-primary/10' : 'text-amber-400 bg-amber-500/10')}>
                   {f.complexity}
                 </span>
               </div>
@@ -109,41 +104,36 @@ function OverviewPanel() {
 
 function AnalysisPanel() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-heading-md font-satoshi text-foreground">Ambiguities Detected</h2>
-        <p className="text-body text-muted-foreground mt-1">Issues that need clarification before development</p>
-      </div>
-      <div className="space-y-3">
-        {demoAnalysis.ambiguities.map(a => (
-          <div key={a.id} className="rounded-lg border border-border bg-surface p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={cn(
-                'px-2 py-0.5 rounded text-label-sm font-mono border',
-                a.severity === 'high' ? 'border-accent-red/30 text-accent-red bg-accent-red/10' :
-                a.severity === 'medium' ? 'border-accent-yellow/30 text-accent-yellow bg-accent-yellow/10' :
-                'border-border text-muted-foreground bg-elevated'
-              )}>
-                {a.severity}
-              </span>
-              <span className="text-label-sm text-primary">{a.feature}</span>
+        <h2 className="text-2xl font-bold text-white mb-1">Ambiguities Detected</h2>
+        <p className="text-sm text-zinc-400 mb-4">Issues that need clarification before development</p>
+        <div className="space-y-3">
+          {demoAnalysis.ambiguities.map(a => (
+            <div key={a.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn('px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider', a.severity === 'high' ? 'text-red-400 bg-red-500/10' : a.severity === 'medium' ? 'text-amber-400 bg-amber-500/10' : 'text-zinc-400 bg-zinc-800')}>
+                  {a.severity}
+                </span>
+                <span className="text-sm font-medium text-primary">{a.feature}</span>
+              </div>
+              <p className="text-sm text-zinc-300">{a.text}</p>
             </div>
-            <p className="text-body text-foreground">{a.text}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-heading-md font-satoshi text-foreground">Missing Requirements</h2>
-        <p className="text-body text-muted-foreground mt-1">Requirements that should be specified but are absent</p>
-      </div>
-      <div className="space-y-3">
-        {demoAnalysis.missingRequirements.map(m => (
-          <div key={m.id} className="rounded-lg border border-accent-red/20 bg-accent-red/5 p-4">
-            <span className="text-label-sm text-primary">{m.feature}</span>
-            <p className="text-body text-foreground mt-1">{m.text}</p>
-          </div>
-        ))}
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-1">Missing Requirements</h2>
+        <p className="text-sm text-zinc-400 mb-4">Requirements that should be specified but are absent</p>
+        <div className="space-y-3">
+          {demoAnalysis.missingRequirements.map(m => (
+            <div key={m.id} className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+              <span className="text-sm font-medium text-primary mb-1 block">{m.feature}</span>
+              <p className="text-sm text-zinc-300">{m.text}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -151,19 +141,19 @@ function AnalysisPanel() {
 
 function ChatPanel() {
   return (
-    <div className="flex flex-col h-[600px]">
-      <div className="flex-1 overflow-auto space-y-4 p-4">
+    <div className="flex flex-col h-[600px] bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-xl">
+      <div className="p-4 border-b border-zinc-800 bg-zinc-950/50">
+        <h3 className="text-sm font-semibold text-white">Blueprint AI Architect</h3>
+      </div>
+      <div className="flex-1 overflow-auto space-y-4 p-6">
         {demoChatMessages.map(msg => (
           <div key={msg.id} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div className={cn(
-              'max-w-[75%] rounded-lg p-3',
-              msg.role === 'user' ? 'bg-accent-orange-dim text-foreground' : 'bg-elevated text-foreground'
-            )}>
-              <p className="text-body whitespace-pre-wrap">{msg.content}</p>
+            <div className={cn('max-w-[75%] rounded-2xl p-4 text-sm leading-relaxed', msg.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-zinc-800 text-zinc-200 rounded-tl-none border border-zinc-700')}>
+              <p className="whitespace-pre-wrap">{msg.content}</p>
               {msg.options && (
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap gap-2 mt-4">
                   {msg.options.map(opt => (
-                    <span key={opt} className="px-3 py-1 rounded-full border border-border bg-surface text-label-sm text-muted-foreground cursor-default">
+                    <span key={opt} className="px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-950 text-xs text-zinc-300 cursor-default">
                       {opt}
                     </span>
                   ))}
@@ -173,76 +163,124 @@ function ChatPanel() {
           </div>
         ))}
       </div>
-      <div className="border-t border-border p-4 bg-surface">
+      <div className="p-4 bg-zinc-950 border-t border-zinc-800">
         <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Demo mode — messages are read-only"
-            disabled
-            className="flex-1 px-3 py-2 rounded-md border border-border bg-elevated text-body text-text-muted placeholder:text-text-muted cursor-not-allowed"
-          />
-          <button disabled className="px-4 py-2 rounded-md bg-primary/50 text-primary-foreground text-body cursor-not-allowed">
-            Send
-          </button>
+          <input type="text" placeholder="Demo mode — messages are read-only" disabled className="flex-1 px-4 py-2.5 rounded-lg border border-zinc-800 bg-zinc-900 text-sm text-zinc-500 cursor-not-allowed" />
+          <button disabled className="px-4 py-2.5 rounded-lg bg-primary/50 text-white text-sm font-medium cursor-not-allowed">Send</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ==========================================
-// NEW DEMO PANELS (Replaces Placeholders)
-// ==========================================
+// --- TASKS & SPRINTS PANELS ---
+function TasksDemoPanel() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Project Backlog</h2>
+        <p className="text-zinc-400 mt-1">Review AI-generated User Stories and effort estimations.</p>
+      </div>
+      <div className="space-y-4">
+        {[
+          { id: "STORY-1", title: "User Authentication & Security", points: 8, tasks: [{ id: "AUTH-101", title: "Implement JWT Middleware", type: "Security", pts: 3 }, { id: "AUTH-102", title: "User Registration Endpoint", type: "Feature", pts: 5 }] },
+          { id: "STORY-2", title: "Core Infrastructure Setup", points: 15, tasks: [{ id: "SYS-001", title: "Setup API Gateway Routing", type: "Infrastructure", pts: 5 }, { id: "DB-042", title: "Provision PostgreSQL RDS", type: "Infrastructure", pts: 8 }] }
+        ].map(story => (
+          <Card key={story.id} className="bg-zinc-900 border-zinc-800 overflow-hidden">
+            <CardHeader className="border-b border-zinc-800 bg-zinc-950/80 py-4 flex flex-row items-start justify-between">
+              <div className="flex gap-3 items-start">
+                <div className="mt-1 bg-blue-500/10 p-1.5 rounded-md border border-blue-500/20 text-blue-400"><BookOpen className="w-4 h-4" /></div>
+                <div>
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-white text-base">{story.title}</CardTitle>
+                    <span className="text-xs font-mono text-zinc-500">{story.id}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
+                <span className="text-xs text-zinc-400 font-medium">Story Points:</span>
+                <span className="text-sm font-bold text-primary">{story.points}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-zinc-800/50">
+                {story.tasks.map(t => (
+                  <div key={t.id} className="p-4 flex items-center justify-between pl-12 bg-zinc-900">
+                    <div className="flex items-center gap-3">
+                      <CircleDashed className="w-4 h-4 text-zinc-600" />
+                      <div>
+                        <h4 className="text-sm font-medium text-zinc-200">{t.title}</h4>
+                        <p className="text-xs text-zinc-500 mt-0.5 font-mono">{t.id}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline" className="text-[10px] uppercase bg-zinc-950 border-zinc-700 text-zinc-400">{t.type}</Badge>
+                      <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">{t.pts}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SprintsDemoPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-heading-md font-satoshi text-foreground">Sprint Board (Read-only)</h2>
-        <p className="text-body text-muted-foreground mt-1">Preview of the AI-generated execution plan.</p>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Sprint Board</h2>
+        <p className="text-zinc-400 mt-1">Preview of the AI-generated execution plan.</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="flex flex-col bg-elevated/50 rounded-xl border border-border p-4">
+        <div className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4">
           <div className="flex items-center gap-2 mb-4">
             <CircleDashed className="w-4 h-4 text-zinc-500" />
             <h3 className="font-semibold text-white">To Do</h3>
           </div>
           <div className="space-y-3">
-            <Card className="bg-surface border-border p-4">
-              <span className="text-[10px] font-mono text-zinc-500">TASK-102</span>
-              <h4 className="text-sm font-medium text-white mt-1">Implement Stripe Webhooks</h4>
-              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-primary bg-primary/10">High</Badge></div>
-            </Card>
-            <Card className="bg-surface border-border p-4">
-              <span className="text-[10px] font-mono text-zinc-500">TASK-103</span>
-              <h4 className="text-sm font-medium text-white mt-1">Setup Redis Cache</h4>
-              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-yellow-400 bg-yellow-400/10">Med</Badge></div>
+            <Card className="bg-zinc-900 border-zinc-800 p-4 border-l-4 border-l-blue-500 relative overflow-hidden">
+              <span className="text-[10px] font-mono text-zinc-500">AUTH-102</span>
+              <h4 className="text-sm font-medium text-white mt-1">User Registration Endpoint</h4>
+              <div className="flex justify-between items-center mt-3">
+                <Badge variant="outline" className="text-red-400 bg-red-500/10 border-red-500/20 border">High</Badge>
+                <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary">5</div>
+              </div>
             </Card>
           </div>
         </div>
-        <div className="flex flex-col bg-elevated/50 rounded-xl border border-border p-4">
+        <div className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-4 h-4 text-blue-400" />
             <h3 className="font-semibold text-white">In Progress</h3>
           </div>
           <div className="space-y-3">
-            <Card className="bg-surface border-border p-4">
-              <span className="text-[10px] font-mono text-zinc-500">TASK-101</span>
-              <h4 className="text-sm font-medium text-white mt-1">Database Schema Migration</h4>
-              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-primary bg-primary/10">High</Badge></div>
+            <Card className="bg-zinc-900 border-zinc-800 p-4 border-l-4 border-l-purple-500 relative overflow-hidden">
+              <span className="text-[10px] font-mono text-zinc-500">DB-042</span>
+              <h4 className="text-sm font-medium text-white mt-1">Provision PostgreSQL RDS</h4>
+              <div className="flex justify-between items-center mt-3">
+                <Badge variant="outline" className="text-amber-400 bg-amber-500/10 border-amber-500/20 border">Med</Badge>
+                <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary">8</div>
+              </div>
             </Card>
           </div>
         </div>
-        <div className="flex flex-col bg-elevated/50 rounded-xl border border-border p-4">
+        <div className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4">
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle2 className="w-4 h-4 text-green-500" />
             <h3 className="font-semibold text-white">Done</h3>
           </div>
           <div className="space-y-3">
-            <Card className="bg-surface border-border p-4 opacity-70">
+            <Card className="bg-zinc-900 border-zinc-800 p-4 border-l-4 border-l-purple-500 relative overflow-hidden opacity-70">
               <span className="text-[10px] font-mono text-zinc-500">SYS-001</span>
-              <h4 className="text-sm font-medium text-white mt-1">Initialize Monorepo</h4>
-              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-green-400 bg-green-400/10">Done</Badge></div>
+              <h4 className="text-sm font-medium text-white mt-1">Setup API Gateway Routing</h4>
+              <div className="flex justify-between items-center mt-3">
+                <Badge variant="outline" className="text-green-400 bg-green-500/10 border-green-500/20 border">Done</Badge>
+                <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary">5</div>
+              </div>
             </Card>
           </div>
         </div>
@@ -251,83 +289,217 @@ function SprintsDemoPanel() {
   );
 }
 
-function CodeDemoPanel() {
+// --- ARCHITECTURE & TRACEABILITY PANELS ---
+const BlueprintNode = ({ data }: any) => {
+  const Icon = data.icon;
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-heading-md font-satoshi text-foreground">Scaffolded Code (Preview)</h2>
-        <p className="text-body text-muted-foreground mt-1">Sign in to download the full .ZIP or push to GitHub.</p>
+    <div className="flex flex-col items-center gap-2 group transition-all w-32">
+      <Handle type="target" position={Position.Top} className="w-2 h-2 bg-primary border-none" />
+      <div className="w-16 h-16 rounded-xl border-2 border-zinc-700 bg-zinc-950 text-zinc-400 flex items-center justify-center">
+        <Icon className="w-8 h-8" />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[400px]">
-        <Card className="col-span-1 bg-elevated border-border">
-          <CardHeader className="p-4 border-b border-border"><CardTitle className="text-sm text-white">Explorer</CardTitle></CardHeader>
-          <CardContent className="p-2 space-y-1">
-            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-primary"><Folder className="w-4 h-4" /> src</div>
-            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 pl-6"><FileCode2 className="w-4 h-4" /> index.ts</div>
-            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 pl-6"><FileCode2 className="w-4 h-4" /> auth.routes.ts</div>
-            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 pl-2"><FileJson className="w-4 h-4 text-yellow-400" /> package.json</div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3 bg-[#1e1e1e] border-border flex items-center justify-center relative overflow-hidden">
-          <pre className="text-sm font-mono text-zinc-300 p-6 absolute inset-0">
-{`import express from 'express';
-import authRoutes from './routes/auth.routes';
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-app.use('/api/v1/auth', authRoutes);
-
-app.listen(PORT, () => {
-  console.log(\`Server running on port \${PORT}\`);
-});`}
-          </pre>
-        </Card>
-      </div>
+      <span className="text-xs font-medium px-2 py-1 rounded-md text-center bg-zinc-900 text-zinc-400">{data.label}</span>
+      <Handle type="source" position={Position.Bottom} className="w-2 h-2 bg-primary border-none" />
     </div>
   );
-}
-
-function TraceabilityDemoPanel() {
-  return (
-    <div className="space-y-6 flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center mb-4">
-        <GitMerge className="h-8 w-8 text-primary" />
-      </div>
-      <h3 className="text-heading-md text-foreground font-satoshi">Traceability Matrix</h3>
-      <p className="text-body text-muted-foreground mt-2 max-w-md">
-        In the live app, this tab renders an interactive Bipartite Graph mapping your business requirements to their corresponding microservices and Jira tickets.
-      </p>
-      <Link to="/auth" className="mt-6 px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:brightness-110 transition-all glow-orange">
-        Sign in to view Live Graph
-      </Link>
-    </div>
-  );
-}
+};
+const archNodes = [
+  { id: "g", type: "blueprint", position: { x: 250, y: 0 }, data: { label: "API Gateway", icon: Globe } },
+  { id: "a", type: "blueprint", position: { x: 100, y: 150 }, data: { label: "Auth Service", icon: Lock } },
+  { id: "p", type: "blueprint", position: { x: 400, y: 150 }, data: { label: "Payments", icon: CreditCard } },
+  { id: "d", type: "blueprint", position: { x: 100, y: 300 }, data: { label: "Users DB", icon: Database } },
+];
+const archEdges = [
+  { id: 'e1', source: 'g', target: 'a', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'e2', source: 'g', target: 'p', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'e3', source: 'a', target: 'd', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+];
 
 function ArchitectureDemoPanel() {
   return (
-    <div className="space-y-6 flex flex-col items-center justify-center py-20 text-center">
-      <div className="flex gap-4 mb-4">
-        <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center"><Globe className="h-8 w-8 text-blue-400" /></div>
-        <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center"><Server className="h-8 w-8 text-primary" /></div>
-        <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center"><Database className="h-8 w-8 text-green-400" /></div>
+    <div className="space-y-6 h-full flex flex-col">
+      <div>
+        <h2 className="text-3xl font-bold text-white tracking-tight">System Architecture</h2>
+        <p className="text-zinc-400 mt-1">Sign in to click nodes and view specific endpoints & logic.</p>
       </div>
-      <h3 className="text-heading-md text-foreground font-satoshi">Interactive Topology Graph</h3>
-      <p className="text-body text-muted-foreground mt-2 max-w-md">
-        Sign up to access the React Flow interactive canvas, where you can click on any node (API Gateway, Auth, Postgres) to view generated endpoints and configurations.
-      </p>
-      <Link to="/auth" className="mt-6 px-4 py-2 border border-border bg-surface text-white rounded-md text-sm font-medium hover:bg-elevated transition-all">
-        Create an Account
-      </Link>
+      <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
+        <ReactFlow nodes={archNodes} edges={archEdges} nodeTypes={{ blueprint: BlueprintNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
+          <Background color="#3f3f46" gap={24} size={1} />
+        </ReactFlow>
+      </div>
+    </div>
+  );
+}
+
+const TraceNode = ({ data }: any) => {
+  const Icon = data.icon;
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-800 bg-zinc-950 w-56">
+      {data.type !== 'req' && <Handle type="target" position={Position.Left} className="w-2 h-2 bg-zinc-500 border-none" />}
+      <div className={cn("p-2 rounded-md", data.type === 'req' ? "text-blue-400 bg-blue-500/10" : data.type === 'srv' ? "text-primary bg-primary/10" : "text-green-400 bg-green-500/10")}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{data.badge}</span>
+        <span className="text-sm font-medium text-white leading-tight mt-0.5">{data.label}</span>
+      </div>
+      {data.type !== 'tsk' && <Handle type="source" position={Position.Right} className="w-2 h-2 bg-zinc-500 border-none" />}
+    </div>
+  );
+};
+const traceNodes = [
+  { id: "r1", type: "trace", position: { x: 50, y: 100 }, data: { label: "User Auth", badge: "PRD-01", type: "req", icon: FileText } },
+  { id: "s1", type: "trace", position: { x: 350, y: 100 }, data: { label: "Auth Service", badge: "Microservice", type: "srv", icon: Server } },
+  { id: "t1", type: "trace", position: { x: 650, y: 50 }, data: { label: "Setup JWT", badge: "TASK-101", type: "tsk", icon: ListChecks } },
+  { id: "t2", type: "trace", position: { x: 650, y: 150 }, data: { label: "OAuth config", badge: "TASK-102", type: "tsk", icon: ListChecks } },
+];
+const traceEdges = [
+  { id: 'tr1', source: 'r1', target: 's1', animated: true, style: { stroke: '#52525b', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' } },
+  { id: 'tr2', source: 's1', target: 't1', style: { stroke: '#52525b', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' } },
+  { id: 'tr3', source: 's1', target: 't2', style: { stroke: '#52525b', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' } },
+];
+
+function TraceabilityDemoPanel() {
+  return (
+    <div className="space-y-6 h-full flex flex-col">
+      <div>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Traceability Matrix</h2>
+        <p className="text-zinc-400 mt-1">Shows how PRD requirements map to generated services and tickets.</p>
+      </div>
+      <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
+        <ReactFlow nodes={traceNodes} edges={traceEdges} nodeTypes={{ trace: TraceNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
+          <Background color="#3f3f46" gap={24} size={1} />
+        </ReactFlow>
+      </div>
+    </div>
+  );
+}
+
+// --- CODE & AUTOMATION PANELS ---
+function CodeDemoPanel() {
+  const [activeFile, setActiveFile] = useState('index.ts');
+
+  const files: Record<string, JSX.Element> = {
+    'index.ts': (
+      <>
+        <span className="text-pink-400">import</span> express <span className="text-pink-400">from</span> <span className="text-green-400">'express'</span>;<br/>
+        <span className="text-pink-400">import</span> authRoutes <span className="text-pink-400">from</span> <span className="text-green-400">'./routes/auth.routes'</span>;<br/><br/>
+        <span className="text-blue-400">const</span> app = express();<br/>
+        <span className="text-blue-400">const</span> PORT = process.env.PORT || <span className="text-orange-400">3000</span>;<br/><br/>
+        app.use(express.json());<br/>
+        app.use(<span className="text-green-400">'/api/v1/auth'</span>, authRoutes);<br/><br/>
+        app.listen(PORT, () ={'>'} {'{\n'}
+        {'  '}console.log(<span className="text-green-400">{"`Server running on port ${PORT}`"}</span>);{'\n}'});
+      </>
+    ),
+    'auth.routes.ts': (
+      <>
+        <span className="text-pink-400">import</span> {'{'} Router {'}'} <span className="text-pink-400">from</span> <span className="text-green-400">'express'</span>;<br/>
+        <span className="text-pink-400">import</span> {'{'} login, register {'}'} <span className="text-pink-400">from</span> <span className="text-green-400">'../controllers/auth.controller'</span>;<br/><br/>
+        <span className="text-blue-400">const</span> router = Router();<br/><br/>
+        <span className="text-zinc-500">// Maps to Requirements in PRD-01</span><br/>
+        router.post(<span className="text-green-400">'/login'</span>, login);<br/>
+        router.post(<span className="text-green-400">'/register'</span>, register);<br/><br/>
+        <span className="text-pink-400">export default</span> router;
+      </>
+    ),
+    'package.json': (
+      <>
+        {'{'}<br/>
+        {'  '}<span className="text-blue-400">"name"</span>: <span className="text-green-400">"auth-service"</span>,<br/>
+        {'  '}<span className="text-blue-400">"version"</span>: <span className="text-green-400">"1.0.0"</span>,<br/>
+        {'  '}<span className="text-blue-400">"dependencies"</span>: {'{\n'}
+        {'    '}<span className="text-blue-400">"express"</span>: <span className="text-green-400">"^4.18.2"</span>,<br/>
+        {'    '}<span className="text-blue-400">"jsonwebtoken"</span>: <span className="text-green-400">"^9.0.0"</span><br/>
+        {'  }'}<br/>
+        {'}'}
+      </>
+    )
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Code Scaffolding</h2>
+        <p className="text-zinc-400 mt-1">Sign in to download the full .ZIP or push directly to GitHub.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[400px]">
+        <Card className="col-span-1 bg-zinc-900 border-zinc-800 flex flex-col">
+          <CardHeader className="p-4 border-b border-zinc-800"><CardTitle className="text-sm text-white">Explorer</CardTitle></CardHeader>
+          <CardContent className="p-2 space-y-1 flex-1">
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-300"><Folder className="w-4 h-4 text-primary/70" /> src</div>
+            <div onClick={() => setActiveFile('index.ts')} className={cn("flex items-center gap-2 px-2 py-1.5 text-sm pl-6 cursor-pointer rounded-md transition-colors", activeFile === 'index.ts' ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-800")}>
+              <FileCode2 className="w-4 h-4" /> index.ts
+            </div>
+            <div onClick={() => setActiveFile('auth.routes.ts')} className={cn("flex items-center gap-2 px-2 py-1.5 text-sm pl-6 cursor-pointer rounded-md transition-colors", activeFile === 'auth.routes.ts' ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-800")}>
+              <FileCode2 className="w-4 h-4" /> auth.routes.ts
+            </div>
+            <div onClick={() => setActiveFile('package.json')} className={cn("flex items-center gap-2 px-2 py-1.5 text-sm pl-2 cursor-pointer rounded-md transition-colors", activeFile === 'package.json' ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-800")}>
+              <FileJson className="w-4 h-4 text-yellow-400" /> package.json
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="col-span-3 bg-[#121212] border-zinc-800 flex flex-col relative overflow-hidden">
+          <div className="border-b border-zinc-800 bg-zinc-900/50 px-4 py-2 flex items-center gap-2">
+            {activeFile.endsWith('.json') ? <FileJson className="w-4 h-4 text-yellow-400" /> : <FileCode2 className="w-4 h-4 text-primary" />}
+            <span className="text-sm font-mono text-zinc-300">{activeFile}</span>
+          </div>
+          <div className="flex-1 p-6 overflow-auto">
+            <pre className="text-sm font-mono text-zinc-300 leading-relaxed">
+              {files[activeFile]}
+            </pre>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function AutomationDemoPanel() {
+  const integrations = [
+    { id: "github", name: "GitHub", desc: "Push scaffolded code.", icon: Github, connected: true },
+    { id: "jira", name: "Jira Software", desc: "Sync architecture tasks.", icon: Trello, connected: false },
+    { id: "slack", name: "Slack", desc: "Receive notifications.", icon: Slack, connected: false }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Automations</h2>
+        <p className="text-zinc-400 mt-1">Connect your workspace to your favorite tools.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {integrations.map((int) => (
+          <Card key={int.id} className={cn("bg-zinc-900 border", int.connected ? "border-primary/30" : "border-zinc-800")}>
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-start">
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-2", int.connected ? "bg-primary/10 text-primary" : "bg-zinc-950 text-zinc-400")}>
+                  <int.icon className="w-6 h-6" />
+                </div>
+                <Switch checked={int.connected} disabled />
+              </div>
+              <CardTitle className="text-white text-xl">{int.name}</CardTitle>
+              <CardDescription className="text-zinc-400 mt-2 h-6">{int.desc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+                {int.connected ? (
+                  <div className="flex items-center gap-2 text-sm text-green-400"><CheckCircle2 className="w-4 h-4" /> Connected</div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-zinc-500"><AlertCircle className="w-4 h-4" /> Not connected</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
 
 export default function Demo() {
   const [active, setActive] = useState<DemoPage>('overview');
-  const [collapsed, setCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const renderPage = () => {
     switch (active) {
@@ -335,64 +507,93 @@ export default function Demo() {
       case 'analysis': return <AnalysisPanel />;
       case 'chat': return <ChatPanel />;
       case 'tests': return <Testing />;
-      case 'tasks': return <SprintsDemoPanel />; // Routing to Kanban preview
+      case 'tasks': return <TasksDemoPanel />;
       case 'sprints': return <SprintsDemoPanel />;
       case 'architecture': return <ArchitectureDemoPanel />;
       case 'traceability': return <TraceabilityDemoPanel />;
       case 'code': return <CodeDemoPanel />;
-      case 'automation': return <div className="text-center py-20 text-zinc-500">Automation configs require an active GitHub/Jira connection.</div>;
+      case 'automation': return <AutomationDemoPanel />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col">
-      <DemoBanner />
+    <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row">
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950 text-white">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Layout className="w-6 h-6 text-primary" />
+          <span className="font-bold">Blueprint.dev</span>
+        </Link>
+        <button className="p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          <Menu className="w-6 h-6" />
+        </button>
+      </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className={cn(
-          'shrink-0 border-r border-border bg-surface flex flex-col transition-all duration-200',
-          collapsed ? 'w-14' : 'w-60'
-        )}>
-          <div className="p-3 border-b border-border flex items-center justify-between">
-            {!collapsed && (
-              <span className="text-label-sm text-primary font-mono font-medium truncate">blueprint.dev</span>
-            )}
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="p-1 rounded hover:bg-elevated text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </button>
-          </div>
+      {/* MATCHES DashboardLayout.tsx SIDEBAR EXACTLY */}
+      <aside className={`
+        ${isMobileMenuOpen ? "block" : "hidden"} 
+        md:block w-full md:w-64 bg-zinc-900 border-r border-zinc-800 flex-shrink-0 transition-all duration-300 z-20
+      `}>
+        <div className="h-full flex flex-col">
+          <Link to="/" className="hidden md:flex items-center gap-2 p-6 border-b border-zinc-800 text-white hover:bg-zinc-800/50 transition-colors">
+            <Layout className="w-6 h-6 text-primary" />
+            <span className="text-xl font-bold tracking-tight">Blueprint.dev</span>
+          </Link>
 
-          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto custom-scrollbar">
-            {navItems.map(item => {
-              const Icon = item.icon;
+          <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+            {navItems.map((item) => {
               const isActive = active === item.key;
               return (
                 <button
                   key={item.key}
-                  onClick={() => setActive(item.key)}
-                  className={cn(
-                    'flex items-center gap-2.5 w-full rounded-md transition-colors',
-                    collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-2',
-                    isActive
-                      ? 'bg-overlay text-foreground border-l-2 border-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-elevated/50'
-                  )}
-                  title={collapsed ? item.label : undefined}
+                  onClick={() => { setActive(item.key); setIsMobileMenuOpen(false); }}
+                  className={`
+                    w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium
+                    ${isActive 
+                      ? "bg-primary/10 text-primary" 
+                      : "text-zinc-400 hover:bg-zinc-800 hover:text-white"}
+                  `}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span className="text-body truncate">{item.label}</span>}
+                  <item.icon className={`w-5 h-5 ${isActive ? "text-primary" : "text-zinc-500"}`} />
+                  {item.label}
                 </button>
               );
             })}
           </nav>
-        </aside>
 
-        {/* Main */}
-        <main className="flex-1 overflow-auto bg-zinc-950">
+          <div className="p-4 border-t border-zinc-800">
+            <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-zinc-950 border border-zinc-800">
+               <div className="flex flex-col text-left">
+                 <span className="text-sm font-medium text-white leading-none">Guest Mode</span>
+                 <span className="text-[10px] text-zinc-500 mt-1">Read-only Demo</span>
+               </div>
+               <Link to="/auth" className="text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 font-medium transition-colors">Sign Up</Link>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        <DemoBanner />
+        
+        <header className="hidden md:flex items-center justify-between px-8 py-4 border-b border-zinc-800 bg-zinc-950">
+          <div className="flex items-center gap-4 text-zinc-400 text-sm">
+            <span>Demo Workspace</span>
+            <span>/</span>
+            <span className="text-white font-medium">{navItems.find(i => i.key === active)?.label}</span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <Link to="/auth">
+              <Button className="bg-primary hover:brightness-110 text-white gap-2 h-9 text-sm glow-orange">
+                Create Account <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-zinc-950 custom-scrollbar">
           <AnimatePresence mode="wait">
             <motion.div
               key={active}
@@ -400,13 +601,13 @@ export default function Demo() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="p-6 md:p-10"
+              className="h-full"
             >
               {renderPage()}
             </motion.div>
           </AnimatePresence>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

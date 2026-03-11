@@ -1,34 +1,47 @@
+// src/components/landing/Navbar.tsx
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom"; // Added Link import
-
-const navLinks = [
-  { label: "Docs", href: "#" },
-  { label: "Pricing", href: "#" },
-  { label: "Sign In", href: "/auth" }, // Updated path to point to auth
-];
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Menu, X, ArrowRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { toast } = useToast(); // <-- INITIALIZED TOAST
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // We add an 'action' property to know whether to scroll down or pop a toast
+  const navLinks = [
+    { name: "Features", href: "#features", action: "scroll" },
+    { name: "Solutions", href: "#solutions", action: "scroll" },
+    { name: "Documentation", href: "#", action: "toast" },
+    { name: "Pricing", href: "#", action: "toast" },
+  ];
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: any) => {
+    if (link.action === "toast") {
+      e.preventDefault(); // Stop the # jump
+      toast({
+        title: link.name,
+        description: `The ${link.name} page will be available in the next release.`
+      });
+    }
+    setIsMobileMenuOpen(false); // Close mobile menu if open
+  };
+
   return (
-    <motion.nav
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.4 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-elevated/80 backdrop-blur-xl border-b border-border-subtle"
-          : "bg-transparent"
-      }`}
-    >
-      <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center justify-between">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      isScrolled ? "bg-canvas/80 backdrop-blur-md border-b border-border-subtle py-4" : "bg-transparent py-6"
+    }`}>
+      <div className="max-w-[1280px] mx-auto px-6 flex items-center justify-between">
+        
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="text-primary">
             <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
@@ -36,29 +49,73 @@ export default function Navbar() {
             <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
             <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
           </svg>
-          <span className="font-satoshi text-lg font-bold text-foreground">
+          <span className="font-satoshi text-lg font-bold text-foreground tracking-tight">
             Blueprint<span className="text-primary">.dev</span>
           </span>
         </Link>
 
-        <div className="flex items-center gap-8">
+        {/* Desktop Links */}
+        <div className="hidden md:flex items-center space-x-8">
           {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              to={link.href}
-              className="text-body text-muted-foreground hover:text-foreground transition-colors"
+            <a 
+              key={link.name} 
+              href={link.href} 
+              onClick={(e) => handleLinkClick(e, link)}
+              className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
             >
-              {link.label}
-            </Link>
+              {link.name}
+            </a>
           ))}
-          <Link
-            to="/auth"
-            className="h-10 px-5 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-medium text-body hover:scale-[1.02] hover:brightness-110 transition-all"
-          >
-            Get Started
+        </div>
+
+        {/* Desktop Actions */}
+        <div className="hidden md:flex items-center space-x-4">
+          <Link to="/auth">
+            <Button variant="ghost" className="text-text-secondary hover:text-text-primary font-medium">
+              Log in
+            </Button>
+          </Link>
+          <Link to="/auth">
+            <Button className="bg-primary hover:brightness-110 text-white font-medium group glow-orange">
+              Get Started
+              <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </Link>
         </div>
+
+        {/* Mobile Toggle */}
+        <button className="md:hidden text-text-primary" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X /> : <Menu />}
+        </button>
       </div>
-    </motion.nav>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-full left-0 right-0 bg-surface border-b border-border-subtle p-6 space-y-4 animate-in fade-in slide-in-from-top-4 shadow-xl">
+          {navLinks.map((link) => (
+            <a 
+              key={link.name} 
+              href={link.href}
+              onClick={(e) => handleLinkClick(e, link)}
+              className="block text-lg font-medium text-text-secondary hover:text-white"
+            >
+              {link.name}
+            </a>
+          ))}
+          <div className="pt-4 flex flex-col space-y-4 border-t border-border-subtle">
+            <Link to="/auth" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button variant="outline" className="w-full justify-center border-border-emphasis text-white h-11">
+                Log in
+              </Button>
+            </Link>
+            <Link to="/auth" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button className="w-full bg-primary text-white justify-center h-11 glow-orange">
+                Get Started
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+    </nav>
   );
 }

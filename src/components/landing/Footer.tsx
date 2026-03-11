@@ -1,3 +1,7 @@
+// src/components/landing/Footer.tsx
+import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast"; // <-- ADDED IMPORT
+
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "Changelog"],
   Developers: ["Documentation", "API Reference", "SDKs", "Status"],
@@ -6,6 +10,19 @@ const footerLinks = {
 };
 
 export default function Footer() {
+  const { toast } = useToast(); // <-- INITIALIZED TOAST
+
+  const handleFooterClick = (e: React.MouseEvent, link: string) => {
+    // If it's the demo link, let it navigate normally
+    if (link === "Demo") return;
+    
+    e.preventDefault();
+    toast({
+      title: link,
+      description: `The ${link} page will be available in the next release.`,
+    });
+  };
+
   return (
     <footer className="bg-surface border-t border-border-subtle">
       <div className="max-w-[1280px] mx-auto px-6 py-16">
@@ -18,12 +35,13 @@ export default function Footer() {
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link}>
-                    <a
-                      href="#"
+                    <Link
+                      to={link === "Demo" ? "/demo" : "#"}
+                      onClick={(e) => handleFooterClick(e, link)}
                       className="text-body text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {link}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

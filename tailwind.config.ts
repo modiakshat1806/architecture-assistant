@@ -1,3 +1,4 @@
+// tailwind.config.ts
 import type { Config } from "tailwindcss";
 
 export default {
@@ -14,6 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
+        // ADDED THIS LINE: Forces Satoshi as the global default font!
+        sans: ["Satoshi", "Inter", "system-ui", "sans-serif"], 
         satoshi: ["Satoshi", "Inter", "system-ui", "sans-serif"],
         inter: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],

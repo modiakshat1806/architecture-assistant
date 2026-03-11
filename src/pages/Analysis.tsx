@@ -3,41 +3,19 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useToast } from "@/hooks/use-toast"; // <-- 1. ADDED IMPORT
 import { FileText, ListTodo, Zap, Clock, Network, ArrowRight, CheckCircle2 } from "lucide-react";
 
-// Mock data for the parsed PRD
 const extractedFeatures = [
-  {
-    id: "feat-1",
-    title: "User Authentication System",
-    description: "JWT-based authentication with OAuth2 providers (Google, GitHub).",
-    complexity: "High",
-    tasks: 8
-  },
-  {
-    id: "feat-2",
-    title: "Real-time Dashboard",
-    description: "WebSocket connection for live data updates and analytics visualization.",
-    complexity: "Medium",
-    tasks: 5
-  },
-  {
-    id: "feat-3",
-    title: "Payment Gateway Integration",
-    description: "Stripe integration for subscription billing and invoicing.",
-    complexity: "High",
-    tasks: 12
-  }
+  { id: "feat-1", title: "User Authentication System", description: "JWT-based authentication with OAuth2 providers (Google, GitHub).", complexity: "High", tasks: 8 },
+  { id: "feat-2", title: "Real-time Dashboard", description: "WebSocket connection for live data updates and analytics visualization.", complexity: "Medium", tasks: 5 },
+  { id: "feat-3", title: "Payment Gateway Integration", description: "Stripe integration for subscription billing and invoicing.", complexity: "High", tasks: 12 }
 ];
 
 export default function Analysis() {
   const navigate = useNavigate();
+  const { toast } = useToast(); // <-- 2. INIT TOAST
 
   return (
     <DashboardLayout>
@@ -47,13 +25,15 @@ export default function Analysis() {
           <p className="text-zinc-400 mt-1">Review the extracted requirements and system complexity.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800">
+          {/* 3. WIRED UP DEAD BUTTON */}
+          <Button 
+            variant="outline" 
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800"
+            onClick={() => toast({ title: "Exporting Report", description: "Generating PDF analysis report..." })}
+          >
             Export Report
           </Button>
-          <Button 
-            onClick={() => navigate("/dashboard/architecture")}
-            className="bg-primary hover:brightness-110 text-white gap-2"
-          >
+          <Button onClick={() => navigate("/dashboard/architecture")} className="bg-primary hover:brightness-110 text-white gap-2">
             View Architecture <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
@@ -61,9 +41,8 @@ export default function Analysis() {
 
       {/* 3-Panel Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)] min-h-[600px]">
-        
         {/* Panel 1: Original Source (col-span-3) */}
-        <Card className="lg:col-span-3 bg-zinc-900 border-zinc-800 flex flex-col hidden lg:flex overflow-hidden">
+        <Card className="lg:col-span-3 bg-zinc-900 border-zinc-800 hidden lg:flex flex-col overflow-hidden">
           <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
             <CardTitle className="text-white text-sm flex items-center gap-2">
               <FileText className="w-4 h-4 text-zinc-400" />
