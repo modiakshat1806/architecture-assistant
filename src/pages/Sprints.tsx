@@ -13,16 +13,18 @@ import {
   Clock, 
   CheckCircle2, 
   CircleDashed,
-  GripVertical
+  GripVertical,
+  BookOpen
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
+// BUG 10 FIXED: Using Fibonacci Story points instead of hours, and assigning tasks to Stories
 const mockTasks = [
-  { id: "TASK-1", title: "Setup PostgreSQL Database Schema", status: "todo", priority: "High", type: "Backend", estimate: "4h" },
-  { id: "TASK-2", title: "Implement JWT Auth Middleware", status: "todo", priority: "High", type: "Security", estimate: "3h" },
-  { id: "TASK-3", title: "Create API Gateway Configuration", status: "in-progress", priority: "Medium", type: "Infrastructure", estimate: "2h" },
-  { id: "TASK-4", title: "Design User Login UI Components", status: "in-progress", priority: "Medium", type: "Frontend", estimate: "5h" },
-  { id: "TASK-5", title: "Initialize Monorepo Structure", status: "done", priority: "High", type: "DevOps", estimate: "1h" },
+  { id: "SYS-001", title: "Setup API Gateway Routing", status: "todo", priority: "High", type: "Infrastructure", points: 5, story: "Core Infra" },
+  { id: "AUTH-102", title: "User Registration Endpoint", status: "todo", priority: "High", type: "Feature", points: 5, story: "Auth & Security" },
+  { id: "DB-042", title: "Provision PostgreSQL RDS", status: "in-progress", priority: "Medium", type: "Infrastructure", points: 8, story: "Core Infra" },
+  { id: "AUTH-101", title: "Implement JWT Middleware", status: "in-progress", priority: "High", type: "Security", points: 3, story: "Auth & Security" },
+  { id: "PAY-201", title: "Stripe Webhook Integration", status: "done", priority: "High", type: "Feature", points: 5, story: "Payments" },
 ];
 
 export default function Sprints() {
@@ -76,9 +78,12 @@ export default function Sprints() {
       draggable
       onDragStart={(e) => handleDragStart(e, task.id)}
       onDragEnd={(e) => handleDragEnd(e, task.id)}
-      className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-all cursor-grab active:cursor-grabbing mb-3 group"
+      className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-all cursor-grab active:cursor-grabbing mb-3 group relative overflow-hidden"
     >
-      <CardContent className="p-4">
+      {/* Accent strip based on type */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${task.type === 'Infrastructure' ? 'bg-purple-500' : task.type === 'Security' ? 'bg-red-500' : 'bg-blue-500'}`} />
+      
+      <CardContent className="p-4 pl-5">
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2">
             <GripVertical className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -89,19 +94,25 @@ export default function Sprints() {
           </Button>
         </div>
         
-        <h3 className="text-sm font-medium text-white mb-3 leading-snug">{task.title}</h3>
+        <h3 className="text-sm font-medium text-white mb-2 leading-snug">{task.title}</h3>
         
-        <div className="flex items-center justify-between mt-4">
+        {/* Story Linkage */}
+        <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-4 bg-zinc-950 w-fit px-2 py-1 rounded border border-zinc-800/80">
+          <BookOpen className="w-3 h-3 text-blue-400" />
+          {task.story}
+        </div>
+        
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-zinc-800/50">
           <div className="flex gap-2">
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
               {task.priority}
             </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
-              {task.type}
-            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500">{task.estimate}</span>
+          <div className="flex items-center gap-3">
+            {/* Story Points Circle */}
+            <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary" title={`${task.points} Story Points`}>
+              {task.points}
+            </div>
             <Avatar className="w-6 h-6 border border-zinc-700">
               <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.id}`} />
               <AvatarFallback>U</AvatarFallback>

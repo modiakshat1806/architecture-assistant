@@ -1,13 +1,17 @@
+// src/pages/Demo.tsx
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileSearch, MessageSquare, ListChecks, Calendar,
   Network, GitBranch, Code2, FlaskConical, Zap, ChevronLeft, ChevronRight,
-  ArrowRight, X
+  ArrowRight, CheckCircle2, CircleDashed, Clock, Folder, FileCode2, FileJson, 
+  Terminal, Download, GitMerge, FileText, Server, Database, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { demoProject, demoAnalysis, demoChatMessages } from '@/data/demo/project';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import Testing from '@/pages/Testing';
 
 type DemoPage = 'overview' | 'analysis' | 'chat' | 'tasks' | 'sprints' | 'architecture' | 'traceability' | 'code' | 'tests' | 'automation';
@@ -32,7 +36,7 @@ function DemoBanner() {
         Demo Mode — Exploring the <span className="text-primary">Food Delivery Platform</span> project
       </p>
       <Link
-        to="/"
+        to="/auth"
         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary text-primary-foreground text-label-sm font-medium hover:bg-primary/90 transition-colors"
       >
         Sign Up Free <ArrowRight className="h-3 w-3" />
@@ -50,7 +54,6 @@ function OverviewPanel() {
         <p className="text-body text-muted-foreground mt-2 max-w-2xl">{p.description}</p>
       </div>
 
-      {/* Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'PRD Health', value: `${p.healthScore} / 100`, color: 'text-primary' },
@@ -64,7 +67,6 @@ function OverviewPanel() {
         ))}
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Features', value: p.features.length },
@@ -79,7 +81,6 @@ function OverviewPanel() {
         ))}
       </div>
 
-      {/* Features */}
       <div>
         <h3 className="text-heading-md text-foreground font-satoshi mb-3">Features</h3>
         <div className="space-y-2">
@@ -189,15 +190,137 @@ function ChatPanel() {
   );
 }
 
-function PlaceholderPanel({ title, description }: { title: string; description: string }) {
+// ==========================================
+// NEW DEMO PANELS (Replaces Placeholders)
+// ==========================================
+
+function SprintsDemoPanel() {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center mb-4">
-        <Network className="h-8 w-8 text-text-muted" />
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-heading-md font-satoshi text-foreground">Sprint Board (Read-only)</h2>
+        <p className="text-body text-muted-foreground mt-1">Preview of the AI-generated execution plan.</p>
       </div>
-      <h3 className="text-heading-md text-foreground font-satoshi">{title}</h3>
-      <p className="text-body text-muted-foreground mt-2 max-w-md">{description}</p>
-      <p className="text-label-sm text-text-muted mt-4 font-mono">Available when teammate's code is merged</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex flex-col bg-elevated/50 rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <CircleDashed className="w-4 h-4 text-zinc-500" />
+            <h3 className="font-semibold text-white">To Do</h3>
+          </div>
+          <div className="space-y-3">
+            <Card className="bg-surface border-border p-4">
+              <span className="text-[10px] font-mono text-zinc-500">TASK-102</span>
+              <h4 className="text-sm font-medium text-white mt-1">Implement Stripe Webhooks</h4>
+              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-primary bg-primary/10">High</Badge></div>
+            </Card>
+            <Card className="bg-surface border-border p-4">
+              <span className="text-[10px] font-mono text-zinc-500">TASK-103</span>
+              <h4 className="text-sm font-medium text-white mt-1">Setup Redis Cache</h4>
+              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-yellow-400 bg-yellow-400/10">Med</Badge></div>
+            </Card>
+          </div>
+        </div>
+        <div className="flex flex-col bg-elevated/50 rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-4 h-4 text-blue-400" />
+            <h3 className="font-semibold text-white">In Progress</h3>
+          </div>
+          <div className="space-y-3">
+            <Card className="bg-surface border-border p-4">
+              <span className="text-[10px] font-mono text-zinc-500">TASK-101</span>
+              <h4 className="text-sm font-medium text-white mt-1">Database Schema Migration</h4>
+              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-primary bg-primary/10">High</Badge></div>
+            </Card>
+          </div>
+        </div>
+        <div className="flex flex-col bg-elevated/50 rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <h3 className="font-semibold text-white">Done</h3>
+          </div>
+          <div className="space-y-3">
+            <Card className="bg-surface border-border p-4 opacity-70">
+              <span className="text-[10px] font-mono text-zinc-500">SYS-001</span>
+              <h4 className="text-sm font-medium text-white mt-1">Initialize Monorepo</h4>
+              <div className="flex gap-2 mt-3"><Badge variant="outline" className="text-green-400 bg-green-400/10">Done</Badge></div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CodeDemoPanel() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-heading-md font-satoshi text-foreground">Scaffolded Code (Preview)</h2>
+        <p className="text-body text-muted-foreground mt-1">Sign in to download the full .ZIP or push to GitHub.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[400px]">
+        <Card className="col-span-1 bg-elevated border-border">
+          <CardHeader className="p-4 border-b border-border"><CardTitle className="text-sm text-white">Explorer</CardTitle></CardHeader>
+          <CardContent className="p-2 space-y-1">
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-primary"><Folder className="w-4 h-4" /> src</div>
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 pl-6"><FileCode2 className="w-4 h-4" /> index.ts</div>
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 pl-6"><FileCode2 className="w-4 h-4" /> auth.routes.ts</div>
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 pl-2"><FileJson className="w-4 h-4 text-yellow-400" /> package.json</div>
+          </CardContent>
+        </Card>
+        <Card className="col-span-3 bg-[#1e1e1e] border-border flex items-center justify-center relative overflow-hidden">
+          <pre className="text-sm font-mono text-zinc-300 p-6 absolute inset-0">
+{`import express from 'express';
+import authRoutes from './routes/auth.routes';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use('/api/v1/auth', authRoutes);
+
+app.listen(PORT, () => {
+  console.log(\`Server running on port \${PORT}\`);
+});`}
+          </pre>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function TraceabilityDemoPanel() {
+  return (
+    <div className="space-y-6 flex flex-col items-center justify-center py-20 text-center">
+      <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center mb-4">
+        <GitMerge className="h-8 w-8 text-primary" />
+      </div>
+      <h3 className="text-heading-md text-foreground font-satoshi">Traceability Matrix</h3>
+      <p className="text-body text-muted-foreground mt-2 max-w-md">
+        In the live app, this tab renders an interactive Bipartite Graph mapping your business requirements to their corresponding microservices and Jira tickets.
+      </p>
+      <Link to="/auth" className="mt-6 px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:brightness-110 transition-all glow-orange">
+        Sign in to view Live Graph
+      </Link>
+    </div>
+  );
+}
+
+function ArchitectureDemoPanel() {
+  return (
+    <div className="space-y-6 flex flex-col items-center justify-center py-20 text-center">
+      <div className="flex gap-4 mb-4">
+        <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center"><Globe className="h-8 w-8 text-blue-400" /></div>
+        <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center"><Server className="h-8 w-8 text-primary" /></div>
+        <div className="w-16 h-16 rounded-xl bg-elevated border border-border flex items-center justify-center"><Database className="h-8 w-8 text-green-400" /></div>
+      </div>
+      <h3 className="text-heading-md text-foreground font-satoshi">Interactive Topology Graph</h3>
+      <p className="text-body text-muted-foreground mt-2 max-w-md">
+        Sign up to access the React Flow interactive canvas, where you can click on any node (API Gateway, Auth, Postgres) to view generated endpoints and configurations.
+      </p>
+      <Link to="/auth" className="mt-6 px-4 py-2 border border-border bg-surface text-white rounded-md text-sm font-medium hover:bg-elevated transition-all">
+        Create an Account
+      </Link>
     </div>
   );
 }
@@ -212,12 +335,12 @@ export default function Demo() {
       case 'analysis': return <AnalysisPanel />;
       case 'chat': return <ChatPanel />;
       case 'tests': return <Testing />;
-      case 'tasks': return <PlaceholderPanel title="Task Board" description="3-column hierarchy with feature → story → task navigation. 89 generated tasks with priority and sprint assignment." />;
-      case 'sprints': return <PlaceholderPanel title="Sprint Planner" description="Drag-and-drop Kanban board with 4 planned sprints. Tasks distributed by story points and priority." />;
-      case 'architecture': return <PlaceholderPanel title="Architecture Diagrams" description="System architecture, API flow, and ER diagrams rendered with Mermaid.js in Blueprint's dark theme." />;
-      case 'traceability': return <PlaceholderPanel title="Traceability Graph" description="Interactive React Flow graph mapping requirements → stories → tasks → code → tests." />;
-      case 'code': return <PlaceholderPanel title="Code Generator" description="VS Code-style file tree with syntax-highlighted code skeletons for 12+ files." />;
-      case 'automation': return <PlaceholderPanel title="Automation" description="GitHub, Jira, and Slack integration cards for push-to-repo and task sync." />;
+      case 'tasks': return <SprintsDemoPanel />; // Routing to Kanban preview
+      case 'sprints': return <SprintsDemoPanel />;
+      case 'architecture': return <ArchitectureDemoPanel />;
+      case 'traceability': return <TraceabilityDemoPanel />;
+      case 'code': return <CodeDemoPanel />;
+      case 'automation': return <div className="text-center py-20 text-zinc-500">Automation configs require an active GitHub/Jira connection.</div>;
     }
   };
 
@@ -225,7 +348,7 @@ export default function Demo() {
     <div className="min-h-screen bg-canvas flex flex-col">
       <DemoBanner />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className={cn(
           'shrink-0 border-r border-border bg-surface flex flex-col transition-all duration-200',
@@ -243,7 +366,7 @@ export default function Demo() {
             </button>
           </div>
 
-          <nav className="flex-1 p-2 space-y-0.5">
+          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto custom-scrollbar">
             {navItems.map(item => {
               const Icon = item.icon;
               const isActive = active === item.key;
@@ -269,7 +392,7 @@ export default function Demo() {
         </aside>
 
         {/* Main */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-zinc-950">
           <AnimatePresence mode="wait">
             <motion.div
               key={active}
@@ -277,7 +400,7 @@ export default function Demo() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="p-6"
+              className="p-6 md:p-10"
             >
               {renderPage()}
             </motion.div>

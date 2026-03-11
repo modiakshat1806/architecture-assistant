@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Clock, FileText, ArrowRight } from "lucide-react";
-import { PageTransition } from "@/components/ui/PageTransition";
 
 const projects = [
   { id: 1, name: "E-Commerce Replatforming", status: "Analyzed", date: "2 hrs ago", tasks: 24 },
@@ -24,8 +23,6 @@ export default function Dashboard() {
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
-    
-    // In a real app, you'd save to the DB here. For now, we route to the upload page.
     setIsDialogOpen(false);
     navigate(`/dashboard/upload`);
   };
@@ -38,7 +35,6 @@ export default function Dashboard() {
           <p className="text-zinc-400 mt-1">Manage your architecture translations.</p>
         </div>
         
-        {/* New Project Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:brightness-110 text-white gap-2">
@@ -62,7 +58,7 @@ export default function Dashboard() {
                     placeholder="e.g., Auth Microservice Refactor" 
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
-                    className="bg-zinc-950 border-zinc-800 focus-visible:ring-primary-500"
+                    className="bg-zinc-950 border-zinc-800 focus-visible:ring-primary"
                     autoFocus
                   />
                 </div>
@@ -80,12 +76,12 @@ export default function Dashboard() {
         </Dialog>
       </div>
 
-      {/* Project Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
           <Card 
             key={project.id} 
-            onClick={() => navigate('/dashboard/code')} 
+            // BUG 4 FIXED: Dynamic routing based on status!
+            onClick={() => project.status === 'Analyzed' ? navigate('/dashboard/architecture') : navigate('/dashboard/upload')} 
             className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer group"
           >
             <CardHeader className="pb-4">
@@ -93,7 +89,7 @@ export default function Dashboard() {
                 <CardTitle className="text-white text-lg">{project.name}</CardTitle>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                   project.status === 'Analyzed' ? 'bg-green-500/10 text-green-400' :
-                  project.status === 'Processing' ? 'bg-primary-500/10 text-primary-400' :
+                  project.status === 'Processing' ? 'bg-primary/10 text-primary' :
                   'bg-zinc-800 text-zinc-400'
                 }`}>
                   {project.status}

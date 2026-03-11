@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
 import { 
   Server, 
   Database, 
@@ -29,7 +30,6 @@ import '@xyflow/react/dist/style.css';
 // ==========================================
 // 1. CUSTOM NODE DEFINITION
 // ==========================================
-// This matches your Blueprint design system
 const BlueprintNode = ({ data, selected }: any) => {
   const Icon = data.icon;
   return (
@@ -79,6 +79,7 @@ const initialEdges = [
 // ==========================================
 export default function Architecture() {
   const navigate = useNavigate();
+  const { toast } = useToast(); // <-- INITIALIZE TOAST
   
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -101,7 +102,17 @@ export default function Architecture() {
           <p className="text-zinc-400 mt-1">Interactive map of your generated services and databases.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2">
+          {/* UPDATED EXPORT BUTTON */}
+          <Button 
+            variant="outline" 
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
+            onClick={() => {
+              toast({
+                title: "Exporting Diagram",
+                description: "Preparing your architecture graph as a high-res PNG...",
+              });
+            }}
+          >
             <Download className="w-4 h-4" /> Export Diagram
           </Button>
           <Button onClick={() => navigate('/dashboard/code')} className="bg-primary hover:brightness-110 text-white gap-2 glow-orange">

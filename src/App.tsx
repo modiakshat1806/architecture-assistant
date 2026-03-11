@@ -16,11 +16,13 @@ import Processing from "./pages/Processing.tsx";
 import Analysis from "./pages/Analysis.tsx";
 import Architecture from "./pages/Architecture.tsx";
 import Tasks from "./pages/Tasks.tsx";
-import Sprints from "./pages/Sprints.tsx"; // <-- Added Sprints import
+import Sprints from "./pages/Sprints.tsx";
 import CodeGenerator from "./pages/CodeGenerator.tsx";
+import Testing from "./pages/Testing.tsx"; // <-- BUG 5 FIXED: Imported Testing
 import Chat from "./pages/Chat.tsx";
 import Automation from "./pages/Automation.tsx";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import Traceability from "./pages/Traceability.tsx";
 
 const queryClient = new QueryClient();
 
@@ -44,10 +46,13 @@ const App = () => (
             <Route path="/dashboard/analysis" element={<Analysis />} />
             <Route path="/dashboard/architecture" element={<Architecture />} />
             <Route path="/dashboard/tasks" element={<Tasks />} />
-            <Route path="/dashboard/sprints" element={<Sprints />} /> {/* <-- Added Sprints route */}
+            <Route path="/dashboard/sprints" element={<Sprints />} />
             <Route path="/dashboard/code" element={<CodeGenerator />} />
+            <Route path="/dashboard/testing" element={<Testing />} /> {/* <-- BUG 5 FIXED: Added Testing Route */}
             <Route path="/dashboard/chat" element={<Chat />} />
             <Route path="/dashboard/automation" element={<Automation />} />
+            <Route path="/dashboard/architecture" element={<Architecture />} />
+            <Route path="/dashboard/traceability" element={<Traceability />} />
             
             {/* Catch-all 404 Route */}
             <Route path="*" element={<NotFound />} />

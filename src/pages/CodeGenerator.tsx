@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
 import { 
   Folder, 
   FolderOpen, 
@@ -57,6 +58,8 @@ const mockFileTree: CodeFile[] = [
 ];
 
 export default function CodeGenerator() {
+  const { toast } = useToast(); // <-- INITIALIZE TOAST
+
   // ==========================================
   // 3. STATE MANAGEMENT
   // ==========================================
@@ -102,7 +105,7 @@ export default function CodeGenerator() {
       try {
         const html = await codeToHtml(activeFile.content || "", {
           lang: activeFile.language || "typescript",
-          theme: "vitesse-dark", // A beautiful dark theme that matches Blueprint
+          theme: "vitesse-dark", 
         });
         
         if (isMounted) {
@@ -112,7 +115,6 @@ export default function CodeGenerator() {
       } catch (error) {
         console.error("Error highlighting code:", error);
         if (isMounted) {
-          // Fallback to plain text if a language grammar fails to load
           setHighlightedHtml(`<pre><code>${activeFile.content}</code></pre>`);
           setIsHighlighting(false);
         }
@@ -198,10 +200,30 @@ export default function CodeGenerator() {
           <p className="text-zinc-400 mt-1">Review and download the generated boilerplate for your services.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2">
+          {/* UPDATED STACKBLITZ BUTTON */}
+          <Button 
+            variant="outline" 
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
+            onClick={() => {
+              toast({
+                title: "Connecting to StackBlitz...",
+                description: "Provisioning a live cloud environment for your repository.",
+              });
+            }}
+          >
             <Terminal className="w-4 h-4" /> Open in StackBlitz
           </Button>
-          <Button className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange">
+
+          {/* UPDATED ZIP DOWNLOAD BUTTON */}
+          <Button 
+            className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
+            onClick={() => {
+              toast({
+                title: "Packaging Repository",
+                description: "Compressing generated microservices into a .zip file...",
+              });
+            }}
+          >
             <Download className="w-4 h-4" /> Download .ZIP
           </Button>
         </div>
