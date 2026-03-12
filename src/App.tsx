@@ -25,6 +25,8 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import Traceability from "./pages/Traceability.tsx";
 import Documentation from "./pages/Documentation.tsx";
 import Pricing from "./pages/Pricing.tsx";
+import Settings from "./pages/Settings.tsx";
+import HelpSupport from "./pages/HelpSupport.tsx";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +59,8 @@ const App = () => (
             <Route path="/dashboard/automation" element={<Automation />} />
             <Route path="/dashboard/architecture" element={<Architecture />} />
             <Route path="/dashboard/traceability" element={<Traceability />} />
+            <Route path="/dashboard/settings" element={<Settings />} />
+            <Route path="/dashboard/help" element={<HelpSupport />} />
             
             {/* Catch-all 404 Route */}
             <Route path="*" element={<NotFound />} />

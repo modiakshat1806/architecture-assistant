@@ -107,16 +107,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Footer Navigation (Settings & Help) */}
         <div className="p-4 border-t border-border-subtle space-y-1">
-          <Link to="/dashboard" onClick={() => toast({ title: "Settings", description: "Workspace settings coming soon." })}>
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-text-secondary hover:bg-overlay hover:text-foreground">
-              <Settings className="w-5 h-5 text-text-muted" />
+          <Link to="/dashboard/settings" onClick={() => setIsMobileMenuOpen(false)}>
+            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${location.pathname === "/dashboard/settings" ? "bg-primary/10 text-primary" : "text-text-secondary hover:bg-overlay hover:text-foreground"}`}>
+              <Settings className={`w-5 h-5 ${location.pathname === "/dashboard/settings" ? "text-primary" : "text-text-muted"}`} />
               Settings
             </div>
           </Link>
-          <button onClick={handleHelp} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-text-secondary hover:bg-overlay hover:text-foreground">
-            <HelpCircle className="w-5 h-5 text-text-muted" />
-            Help & Support
-          </button>
+          <Link to="/dashboard/help" onClick={() => setIsMobileMenuOpen(false)}>
+            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${location.pathname === "/dashboard/help" ? "bg-primary/10 text-primary" : "text-text-secondary hover:bg-overlay hover:text-foreground"}`}>
+              <HelpCircle className={`w-5 h-5 ${location.pathname === "/dashboard/help" ? "text-primary" : "text-text-muted"}`} />
+              Help & Support
+            </div>
+          </Link>
         </div>
       </aside>
 
