@@ -26,13 +26,16 @@ export default function Navbar() {
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: any) => {
     if (link.action === "toast") {
-      e.preventDefault(); // Stop the # jump
+      e.preventDefault();
       toast({
         title: link.name,
         description: `The ${link.name} page will be available in the next release.`
       });
+    } else if (link.action === "link") {
+      e.preventDefault();
+      window.location.href = link.href;
     }
-    setIsMobileMenuOpen(false); // Close mobile menu if open
+    setIsMobileMenuOpen(false);
   };
 
   return (
