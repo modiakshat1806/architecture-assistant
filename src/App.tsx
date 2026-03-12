@@ -23,6 +23,8 @@ import Chat from "./pages/Chat.tsx";
 import Automation from "./pages/Automation.tsx";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import Traceability from "./pages/Traceability.tsx";
+import Documentation from "./pages/Documentation.tsx";
+import Pricing from "./pages/Pricing.tsx";
 
 const queryClient = new QueryClient();
 
