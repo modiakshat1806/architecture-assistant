@@ -60,14 +60,14 @@ export default function Hero() {
             
 
             
-            <div className="flex gap-3">
-              {[1, 2, 3].map((i) =>
-              <div
-                key={i}
-                className="w-16 h-5 rounded bg-overlay" />
+            
 
-              )}
-            </div>
+
+
+
+
+
+            
           </motion.div>
         </div>
 
