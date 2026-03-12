@@ -20,19 +20,22 @@ export default function Navbar() {
   const navLinks = [
     { name: "Features", href: "#features", action: "scroll" },
     { name: "Solutions", href: "#solutions", action: "scroll" },
-    { name: "Documentation", href: "#", action: "toast" },
-    { name: "Pricing", href: "#", action: "toast" },
+    { name: "Documentation", href: "/docs", action: "link" },
+    { name: "Pricing", href: "/pricing", action: "link" },
   ];
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: any) => {
     if (link.action === "toast") {
-      e.preventDefault(); // Stop the # jump
+      e.preventDefault();
       toast({
         title: link.name,
         description: `The ${link.name} page will be available in the next release.`
       });
+    } else if (link.action === "link") {
+      e.preventDefault();
+      window.location.href = link.href;
     }
-    setIsMobileMenuOpen(false); // Close mobile menu if open
+    setIsMobileMenuOpen(false);
   };
 
   return (
