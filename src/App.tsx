@@ -25,6 +25,8 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import Traceability from "./pages/Traceability.tsx";
 import Documentation from "./pages/Documentation.tsx";
 import Pricing from "./pages/Pricing.tsx";
+import Settings from "./pages/Settings.tsx";
+import HelpSupport from "./pages/HelpSupport.tsx";
 
 const queryClient = new QueryClient();
 
