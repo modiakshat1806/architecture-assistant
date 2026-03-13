@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast"; // <-- 1. ADDED IMPORT
-import { FileText, ListTodo, Zap, Clock, Network, ArrowRight, CheckCircle2 } from "lucide-react";
+import { FileText, ListTodo, Zap, Clock, Network, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface ParsedData {
   projectName: string;
@@ -37,11 +37,25 @@ const mockFeatures = [
   { id: "feat-3", title: "Multi-tenant Data Isolation", description: "Row-level security policies for core PostgreSQL databases.", complexity: "High", tasks: 5 },
 ];
 
+const mockAmbiguities = [
+  { id: "amb-1", title: "OAuth Redirect URLs", description: "Redirect URLs for the staging environment are not explicitly defined in the security spec.", severity: "Medium" },
+  { id: "amb-2", title: "Currency Support", description: "Unclear if the payment gateway needs to support multi-currency or single-currency transactions initially.", severity: "High" },
+  { id: "amb-3", title: "Token Revocation", description: "Method for revoking tokens before expiration (e.g. blacklist vs database check) is not specified.", severity: "Medium" },
+];
+
+const mockMissingRequirements = [
+  { id: "miss-1", title: "Rate Limiting", description: "Missing specific throughput requirements and rate limiting policies for the authentication endpoints.", feature: "Authentication" },
+  { id: "miss-2", title: "Connection Timeouts", description: "Timeout intervals for WebSocket connections and automatic reconnection strategy are absent.", feature: "Real-time Bridge" },
+  { id: "miss-3", title: "Audit Logging", description: "No requirement for auditing RLS bypass attempts or database administrative actions.", feature: "Data Isolation" },
+];
+
 export default function Analysis() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [data, setData] = useState<ParsedData>(mockData);
   const [extractedFeatures, setExtractedFeatures] = useState<any[]>(mockFeatures);
+  const [detectedAmbiguities, setDetectedAmbiguities] = useState<any[]>(mockAmbiguities);
+  const [missingRequirements, setMissingRequirements] = useState<any[]>(mockMissingRequirements);
 
   useEffect(() => {
     const rawData = localStorage.getItem("blueprint_project_data");
@@ -54,11 +68,14 @@ export default function Analysis() {
         if (parsed.features) {
           setExtractedFeatures(parsed.features);
         }
+        // In a real app we'd load these from the parsed data too
+        // if (parsed.ambiguities) setDetectedAmbiguities(parsed.ambiguities);
+        // if (parsed.missingRequirements) setMissingRequirements(parsed.missingRequirements);
       } catch (e) {
         console.error("Error parsing blueprint data", e);
       }
     }
-  }, []); // <-- 2. INIT TOAST
+  }, []);
 
   return (
     <DashboardLayout>
@@ -71,73 +88,135 @@ export default function Analysis() {
           {/* 3. WIRED UP DEAD BUTTON */}
           <Button
             variant="outline"
-            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800"
+            className="bg-orange-600 border-orange-700 text-white hover:bg-orange-700"
             onClick={() => toast({ title: "Exporting Report", description: "Generating PDF analysis report..." })}
           >
             Export Report
-          </Button>
-          <Button onClick={() => navigate("/dashboard/architecture")} className="bg-primary hover:brightness-110 text-white gap-2">
-            View Architecture <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
       {/* 3-Panel Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)] min-h-[600px]">
-        {/* Panel 1: Original Source (col-span-3) */}
-        <Card className="lg:col-span-3 bg-zinc-900 border-zinc-800 hidden lg:flex flex-col overflow-hidden">
-          <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
-            <CardTitle className="text-white text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-zinc-400" />
-              Source Document
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4 text-sm text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap">
-            {`# Project: V2 Platform Refactor\n\n## 1. Overview\nThe goal of this project is to migrate the legacy monolithic authentication system to a distributed microservice... \n\n## 2. Core Requirements\n- Must support multi-tenant data isolation.\n- JWT tokens with 15-minute expiration.\n- Real-time event broadcasting for dashboard widgets.\n\n## 3. Non-Functional\n- 99.9% uptime SLA.\n- Response time < 200ms for core API routes.`}
-          </CardContent>
-        </Card>
+        {/* Panel 2: Main Content Area (col-span-9) */}
+        <div className="lg:col-span-9 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
+          {/* Section 1: Extracted Features */}
+          <Card className="bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
+            <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
+              <CardTitle className="text-white text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ListTodo className="w-4 h-4 text-primary-500" />
+                  Extracted Features
+                </div>
+                <span className="bg-primary/10 text-primary-400 px-2 py-0.5 rounded text-xs font-medium">
+                  {extractedFeatures.length} Found
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <Accordion type="single" collapsible className="w-full">
+                {extractedFeatures.map((feature) => (
+                  <AccordionItem key={feature.id} value={feature.id} className="border-zinc-800">
+                    <AccordionTrigger className="text-white hover:text-primary-400 hover:no-underline">
+                      <div className="flex items-center gap-3 text-left">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 hidden sm:block" />
+                        <span>{feature.title}</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-zinc-400">
+                      <p className="mb-4">{feature.description}</p>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                          <Zap className="w-3 h-3 text-amber-500" />
+                          Complexity: <span className="text-white">{feature.complexity}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                          <ListTodo className="w-3 h-3 text-primary-500" />
+                          <span className="text-white">{feature.tasks}</span> Tasks Generated
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
 
-        {/* Panel 2: Extracted Features (col-span-6) */}
-        <Card className="lg:col-span-6 bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
-          <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
-            <CardTitle className="text-white text-sm flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ListTodo className="w-4 h-4 text-primary-500" />
-                Extracted Features
-              </div>
-              <span className="bg-primary/10 text-primary-400 px-2 py-0.5 rounded text-xs font-medium">
-                {extractedFeatures.length} Found
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4">
-            <Accordion type="single" collapsible className="w-full">
-              {extractedFeatures.map((feature) => (
-                <AccordionItem key={feature.id} value={feature.id} className="border-zinc-800">
-                  <AccordionTrigger className="text-white hover:text-primary-400 hover:no-underline">
-                    <div className="flex items-center gap-3 text-left">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 hidden sm:block" />
-                      <span>{feature.title}</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-zinc-400">
-                    <p className="mb-4">{feature.description}</p>
-                    <div className="flex gap-4">
-                      <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
-                        <Zap className="w-3 h-3 text-amber-500" />
-                        Complexity: <span className="text-white">{feature.complexity}</span>
+          {/* Section 2: Ambiguities Detected */}
+          <Card className="bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
+            <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
+              <CardTitle className="text-white text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  Ambiguities Detected
+                </div>
+                <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded text-xs font-medium">
+                  {detectedAmbiguities.length} Found
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <Accordion type="single" collapsible className="w-full">
+                {detectedAmbiguities.map((ambiguity) => (
+                  <AccordionItem key={ambiguity.id} value={ambiguity.id} className="border-zinc-800">
+                    <AccordionTrigger className="text-white hover:text-amber-400 hover:no-underline">
+                      <div className="flex items-center gap-3 text-left">
+                        <AlertCircle className="w-4 h-4 text-amber-500 hidden sm:block" />
+                        <span>{ambiguity.title}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
-                        <ListTodo className="w-3 h-3 text-primary-500" />
-                        <span className="text-white">{feature.tasks}</span> Tasks Generated
+                    </AccordionTrigger>
+                    <AccordionContent className="text-zinc-400">
+                      <p className="mb-4">{ambiguity.description}</p>
+                      <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800 w-fit">
+                        <span className="text-zinc-500 capitalize">Severity:</span>
+                        <span className={cn(
+                          "font-bold",
+                          ambiguity.severity === "High" ? "text-red-400" : "text-amber-400"
+                        )}>{ambiguity.severity}</span>
                       </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </CardContent>
-        </Card>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+
+          {/* Section 3: Missing Requirements */}
+          <Card className="bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
+            <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
+              <CardTitle className="text-white text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Network className="w-4 h-4 text-red-500" />
+                  Missing Requirements
+                </div>
+                <span className="bg-red-500/10 text-red-500 px-2 py-0.5 rounded text-xs font-medium">
+                  {missingRequirements.length} Identified
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <Accordion type="single" collapsible className="w-full">
+                {missingRequirements.map((req) => (
+                  <AccordionItem key={req.id} value={req.id} className="border-zinc-800">
+                    <AccordionTrigger className="text-white hover:text-red-400 hover:no-underline">
+                      <div className="flex items-center gap-3 text-left">
+                        <div className="w-4 h-4 rounded-full bg-red-500/20 border border-red-500/30 flex-shrink-0" />
+                        <span>{req.title}</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-zinc-400">
+                      <p className="mb-4">{req.description}</p>
+                      <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800 w-fit">
+                        <span className="text-zinc-500">Feature:</span>
+                        <span className="text-white">{req.feature}</span>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Panel 3: Metrics & Overview (col-span-3) */}
         <div className="lg:col-span-3 space-y-6 flex flex-col">
@@ -167,25 +246,6 @@ export default function Analysis() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary-900/20 to-zinc-900 border-primary-900/50 flex-1">
-            <CardHeader>
-              <CardTitle className="text-white text-sm flex items-center gap-2">
-                <Network className="w-4 h-4 text-primary-400" />
-                Next Step
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-400 mb-4">
-                We've mapped these features to a microservices architecture diagram.
-              </p>
-              <Button
-                onClick={() => navigate("/dashboard/architecture")}
-                className="w-full bg-primary hover:brightness-110 text-white"
-              >
-                View Architecture Diagram
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </DashboardLayout>
