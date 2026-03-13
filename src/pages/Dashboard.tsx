@@ -1,15 +1,15 @@
 // src/pages/Dashboard.tsx
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, FileText, ArrowRight, Activity, Eye, RefreshCcw, CheckCircle2, ListTodo } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
+import { Plus, Clock, FileText, ArrowRight, Activity, ListTodo, RefreshCcw, CheckCircle2, Eye, Badge } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase"; // <-- ADDED SUPABASE
 
 const projects = [
   { id: 1, name: "E-Commerce Replatforming", status: "Analyzed", date: "2 hrs ago", tasks: 24 },
@@ -62,18 +62,33 @@ const recentActivity = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { toast } = useToast(); // <-- INITIALIZED TOAST
+  const { toast } = useToast();
   const [newProjectName, setNewProjectName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [userName, setUserName] = useState("Developer"); // <-- ADDED NAME STATE
+
+  // Fetch the logged in user's name
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserName(user.user_metadata?.full_name || "Developer");
+      } else {
+        navigate("/auth"); // Redirect if not logged in
+      }
+    };
+    fetchUser();
+  }, [navigate]);
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
+
     setIsDialogOpen(false);
-    navigate(`/dashboard/upload`);
+    // We pass the name so the Upload page knows which project this file belongs to
+    navigate(`/dashboard/upload`, { state: { projectName: newProjectName } });
   };
 
-  // Handler for dead links
   const handleViewAll = (section: string) => {
     toast({
       title: `Opening ${section}`,
@@ -111,9 +126,7 @@ export default function Dashboard() {
             <form onSubmit={handleCreateProject}>
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
-                <DialogDescription className="text-zinc-400">
-                  Give your project a name to get started. You'll upload your PRD next.
-                </DialogDescription>
+                <DialogDescription className="text-zinc-400">Give your project a name to get started.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
@@ -129,12 +142,8 @@ export default function Dashboard() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-primary hover:brightness-110 text-white" disabled={!newProjectName.trim()}>
-                  Continue to Upload
-                </Button>
+                <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-zinc-400 hover:text-white">Cancel</Button>
+                <Button type="submit" className="bg-primary text-white" disabled={!newProjectName.trim()}>Continue to Upload</Button>
               </DialogFooter>
             </form>
           </DialogContent>

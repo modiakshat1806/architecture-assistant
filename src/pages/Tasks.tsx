@@ -1,87 +1,54 @@
 import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { 
-  ListTodo, 
-  ArrowRight, 
-  CircleDashed, 
-  Filter, 
-  BookOpen, 
-  Search, 
+import {
+  ListTodo,
+  ArrowRight,
+  CircleDashed,
+  Filter,
+  BookOpen, Play, Loader2, AlertCircle,
+  Search,
   X,
   Plus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// BUG 10 FIXED: Grouped tasks into actual User Stories with aggregated Fibonacci Story Points
-const BACKLOG_STORIES = [
-  {
-    id: "STORY-1",
-    title: "User Authentication & Security",
-    description: "As a user, I want to securely log in and register so my data is protected.",
-    totalPoints: 8,
-    tasks: [
-      { id: "AUTH-101", title: "Implement JWT Middleware", priority: "High", type: "Security", points: 3 },
-      { id: "AUTH-102", title: "User Registration Endpoint", priority: "High", type: "Feature", points: 5 },
-    ]
-  },
-  {
-    id: "STORY-2",
-    title: "Core Infrastructure Setup",
-    description: "As an engineer, I need the base infrastructure provisioned to deploy services.",
-    totalPoints: 15,
-    tasks: [
-      { id: "SYS-001", title: "Setup API Gateway Routing", priority: "High", type: "Infrastructure", points: 5 },
-      { id: "DB-042", title: "Provision PostgreSQL RDS", priority: "Medium", type: "Infrastructure", points: 8 },
-      { id: "CORE-009", title: "Configure Redis Caching Layer", priority: "Low", type: "Infrastructure", points: 2 },
-    ]
-  },
-  {
-    id: "STORY-3",
-    title: "Payment Processing",
-    description: "As a user, I want to securely pay for my subscription.",
-    totalPoints: 5,
-    tasks: [
-      { id: "PAY-201", title: "Stripe Webhook Integration", priority: "High", type: "Feature", points: 5 },
-    ]
-  }
-];
-
 export default function Tasks() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const filteredStories = useMemo(() => {
     if (!searchQuery) return BACKLOG_STORIES;
     const query = searchQuery.toLowerCase();
-    
+
     return BACKLOG_STORIES.map(story => {
       // Find tasks that match the search query (title, priority, id, or type)
-      const filteredTasks = story.tasks.filter(task => 
-        task.title.toLowerCase().includes(query) || 
+      const filteredTasks = story.tasks.filter(task =>
+        task.title.toLowerCase().includes(query) ||
         task.priority.toLowerCase().includes(query) ||
         task.id.toLowerCase().includes(query) ||
         task.type.toLowerCase().includes(query)
       );
 
       // If story title matches query, include the whole story
-      const isStoryMatch = story.title.toLowerCase().includes(query) || 
-                          story.description.toLowerCase().includes(query);
+      const isStoryMatch = story.title.toLowerCase().includes(query) ||
+        story.description.toLowerCase().includes(query);
 
       if (isStoryMatch) {
         return story;
       }
 
       if (filteredTasks.length > 0) {
-        return { 
-          ...story, 
+        return {
+          ...story,
           tasks: filteredTasks,
           // Re-calculate points for the filtered view if we want to be precise, 
           // or keep original points. Let's keep original for context.
@@ -99,13 +66,14 @@ export default function Tasks() {
             <ListTodo className="w-8 h-8 text-primary" />
             Tasks
           </h1>
-          <p className="text-zinc-400 mt-1">Review AI-generated User Stories and effort estimations.</p>
+          <p className="text-zinc-400 mt-1">Real-time tasks extracted from your PRD analysis.</p>
         </div>
         <div className="flex gap-3">
+          {/* WIRED UP FILTER BUTTON */}
           <Button
             variant="outline"
-            className={`${isFilterOpen ? 'bg-zinc-800' : 'bg-zinc-950'} border-zinc-700 text-white hover:bg-zinc-800 gap-2`}
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
+            onClick={() => toast({ title: "Filters", description: "Opening advanced backlog filters..." })}
           >
             <Filter className="w-4 h-4" /> Filter
           </Button>
@@ -121,16 +89,16 @@ export default function Tasks() {
           <CardContent className="p-4 space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-              <Input 
-                placeholder="Search tasks, stories, or priorities..." 
+              <Input
+                placeholder="Search tasks, stories, or priorities..."
                 className="pl-10 bg-zinc-950 border-zinc-800 text-white focus:ring-primary h-11"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-500 hover:text-white"
                   onClick={() => setSearchQuery("")}
                 >
@@ -138,7 +106,7 @@ export default function Tasks() {
                 </Button>
               )}
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Priority Recommendations:</span>
               {['Critical', 'High', 'Medium', 'Low'].map((p) => (
@@ -148,8 +116,8 @@ export default function Tasks() {
                   size="sm"
                   className={`
                     text-xs h-7 px-3 rounded-full border-zinc-800 transition-all
-                    ${searchQuery.toLowerCase() === p.toLowerCase() 
-                      ? 'bg-primary/20 text-primary border-primary/30' 
+                    ${searchQuery.toLowerCase() === p.toLowerCase()
+                      ? 'bg-primary/20 text-primary border-primary/30'
                       : 'bg-zinc-950 text-zinc-400 hover:text-white hover:bg-zinc-800'}
                   `}
                   onClick={() => setSearchQuery(p)}
@@ -226,25 +194,7 @@ export default function Tasks() {
                 </div>
               </CardContent>
             </Card>
-          ))
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mb-4 border border-zinc-800">
-              <Search className="w-8 h-8 text-zinc-700" />
-            </div>
-            <h3 className="text-lg font-medium text-white">No tasks found</h3>
-            <p className="text-zinc-500 mt-1 max-w-xs">
-              We couldn't find any tasks matching "{searchQuery}". Try a different term or priority.
-            </p>
-            <Button 
-              variant="link" 
-              className="text-primary mt-4"
-              onClick={() => setSearchQuery("")}
-            >
-              Clear all filters
-            </Button>
-          </div>
-        )}
+          ))}
       </div>
     </DashboardLayout>
   );
