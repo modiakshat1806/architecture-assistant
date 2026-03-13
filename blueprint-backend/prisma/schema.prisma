@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Profile {
@@ -64,4 +65,11 @@ model PipelineAnalysis {
   updatedAt      DateTime   @updatedAt
 
   prdVersion     PrdVersion @relation(fields: [prdVersionId], references: [id], onDelete: Cascade)
+}
+model ClarificationAnswer {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  question   String
+  answer     String
+  createdAt  DateTime @default(now())
 }
