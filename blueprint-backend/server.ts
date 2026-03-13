@@ -9,6 +9,10 @@ import { PrismaClient } from "@prisma/client";
 import { runPrdPipeline } from "./src/lib/pipeline/prdPipeline.js";
 import { createRepo, pushFiles } from "./src/lib/integrations/github.js";
 import { syncSprint } from "./src/lib/integrations/clickup.js";
+import {
+  getClarifications,
+  saveClarificationAnswer
+} from "./src/lib/pipeline/clarificationService.js";
 
 dotenv.config();
 
@@ -72,6 +76,8 @@ app.post("/api/prd/upload", upload.single("prd"), async (req, res) => {
                 codeStructure: pipelineResult.codeStructure || [],
                 tests: pipelineResult.tests || [],
                 traceability: pipelineResult.traceability || {},
+                ambiguities: pipelineResult.ambiguities || [],
+                clarifications: pipelineResult.clarifications || [],
                 healthScore: pipelineResult.healthScore || {},
                 devops: pipelineResult.devops || {},
               },
@@ -94,10 +100,9 @@ app.post("/api/prd/upload", upload.single("prd"), async (req, res) => {
       projectId: savedProject.id,
       data: pipelineResult,
     });
-
-  } catch (error: any) {
-    console.error("Pipeline Error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error processing PRD." });
   }
 });
 
@@ -297,6 +302,44 @@ app.post("/api/sync-clickup", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * Get clarification questions for a project
+ */
+app.get("/api/projects/:projectId/clarifications", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const clarifications = await getClarifications(projectId);
+    res.json(clarifications);
+  } catch (error) {
+    console.error("Failed to get clarifications:", error);
+    res.status(500).json({ error: "Failed to get clarification questions." });
+  }
+});
+
+/**
+ * Save an answer to a clarification question
+ */
+app.post("/api/projects/:projectId/clarifications", async (req, res) => {
+  try {
+
+    const { question, answer } = req.body;
+
+    const result = await saveClarificationAnswer(
+      req.params.projectId,
+      question,
+      answer
+    );
+
+    res.json(result);
+
+  } catch (err:any) {
+
+    res.status(500).json({ error: err.message });
+
+  }
+
 });
 
 /* =========================================================
