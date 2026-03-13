@@ -52,6 +52,22 @@ export default function Overview() {
         const aiSprints = parsed.sprints || [];
         const aiAmbiguities = parsed.ambiguities || [];
 
+        // Calculate completeness based on generated architecture modules
+        let generatedModules = 0;
+        const expectedModules = 9;
+        
+        if (aiFeatures.length > 0) generatedModules++;
+        if (aiStories.length > 0) generatedModules++;
+        if (aiTasks.length > 0) generatedModules++;
+        if (aiSprints.length > 0) generatedModules++;
+        if (parsed.architecture && Object.keys(parsed.architecture).length > 0) generatedModules++;
+        if (parsed.codeStructure && parsed.codeStructure.length > 0) generatedModules++;
+        if (parsed.tests && parsed.tests.length > 0) generatedModules++;
+        if (parsed.traceability && Object.keys(parsed.traceability).length > 0) generatedModules++;
+        if (parsed.devops && Object.keys(parsed.devops).length > 0) generatedModules++;
+
+        const calculatedCompleteness = Math.round((generatedModules / expectedModules) * 100) || 0;
+
         // Dynamic metrics based on AI output
         const totalTasks = aiTasks.length;
         const calculatedComplexity = totalTasks > 50 ? "High" : totalTasks > 20 ? "Medium" : "Low";
@@ -81,7 +97,7 @@ export default function Overview() {
           name: parsed.projectName || "Untitled Project",
           description: "AI-generated architecture roadmap based on your uploaded PRD requirements. The pipeline has successfully extracted features, stories, and engineering tasks.",
           healthScore: parsed.healthScore?.score || 0,
-          completeness: 100, // If data is in localStorage, pipeline mapping is complete
+          completeness: calculatedCompleteness, // Dynamic completeness score based on generated modules
           complexity: calculatedComplexity,
           timeline: `${estimatedWeeks} Weeks`,
           features: formattedFeatures,

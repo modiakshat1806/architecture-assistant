@@ -26,6 +26,7 @@ export default function PRDUpload() {
   const [error, setError] = useState<string | null>(null);
 
   const projectName = location.state?.projectName || "Untitled Project";
+  const isUpdateFlow = location.state?.isUpdateFlow || false;
 
   /*
   ==========================
@@ -130,6 +131,7 @@ export default function PRDUpload() {
   ==========================
   */
   const handleProcess = async () => {
+    console.log("PRD UPLOAD - Running Version 2.2 (Metrics Sync Check)");
 
     if (!file) return;
 
@@ -171,6 +173,7 @@ export default function PRDUpload() {
       const rawData = result?.data ?? {};
 
       const safeData = {
+        id: result.projectId, // Store the real ID from DB
         projectName:
           projectName !== "Untitled Project"
             ? projectName
@@ -179,6 +182,7 @@ export default function PRDUpload() {
         features: rawData.features ?? [],
         stories: rawData.stories ?? [],
         tasks: rawData.tasks ?? [],
+        sprints: rawData.sprints ?? [],
 
         architecture:
           rawData.architecture ?? { nodes: [], edges: [] },
@@ -186,11 +190,18 @@ export default function PRDUpload() {
         traceability:
           rawData.traceability ?? { nodes: [], edges: [] },
 
+        codeStructure: rawData.codeStructure ?? [],
+        tests: rawData.tests ?? [],
+        devops: rawData.devops ?? {},
+
         healthScore:
           rawData.healthScore ?? {
             score: 0,
             issues: ["Analysis incomplete"]
-          }
+          },
+
+        ambiguities: rawData.ambiguities ?? [],
+        clarifications: rawData.clarifications ?? []
       };
 
       localStorage.setItem(
@@ -237,14 +248,16 @@ export default function PRDUpload() {
 
           <h1 className="text-3xl font-bold text-white">
 
-            {projectName === "Untitled Project"
-              ? "Upload PRD"
-              : `PRD for: ${projectName}`}
+            {isUpdateFlow
+              ? `Refining Roadmap: ${projectName}`
+              : projectName === "Untitled Project"
+                ? "Upload PRD"
+                : `New Project: ${projectName}`}
 
           </h1>
 
           <p className="text-zinc-400 mt-2">
-            Upload a PRD. Gemini will generate backlog, architecture and tests.
+            Upload your PRD to extract features, architecture, and engineering tasks.
           </p>
 
         </div>
@@ -347,20 +360,20 @@ export default function PRDUpload() {
               <Button
                 onClick={handleProcess}
                 disabled={isUploading}
-                className="gap-2"
+                className="gap-2 bg-primary hover:brightness-110 text-white"
               >
 
                 {isUploading ? (
 
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
+                    Analyzing...
                   </>
 
                 ) : (
 
                   <>
-                    Begin Analysis
+                    {isUpdateFlow ? "Analyze Updates" : "Begin Analysis"}
                     <ArrowRight className="w-4 h-4" />
                   </>
 

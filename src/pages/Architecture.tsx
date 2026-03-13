@@ -31,6 +31,42 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng } from 'html-to-image';
+import dagre from 'dagre';
+
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+const nodeWidth = 150;
+const nodeHeight = 120;
+
+const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  nodes.forEach((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    node.targetPosition = direction === 'LR' ? 'left' : 'top';
+    node.sourcePosition = direction === 'LR' ? 'right' : 'bottom';
+
+    node.position = {
+      x: nodeWithPosition.x - nodeWidth / 2,
+      y: nodeWithPosition.y - nodeHeight / 2,
+    };
+
+    return node;
+  });
+
+  return { nodes, edges };
+};
 
 const iconMap: Record<string, any> = {
   gateway: Globe,
@@ -117,9 +153,7 @@ function ArchitectureContent() {
             return {
               id: n.id,
               type: 'blueprint', // This tells ReactFlow to use our custom component
-              position: (n.position && typeof n.position.x === 'number')
-                ? n.position
-                : { x: (index % 3) * 250, y: Math.floor(index / 3) * 180 },
+              position: { x: 0, y: 0 },
               // We explicitly build the required data object here
               data: {
                 label: innerData.label || innerData.name || "Service Node",
@@ -131,15 +165,26 @@ function ArchitectureContent() {
           });
 
         // Safely format edges so they don't break if IDs are missing
-        const formattedEdges = (architectureData.edges || []).map((e: any, i: number) => ({
-            ...e,
-            id: e.id || `edge-${i}-${e.source}-${e.target}`,
-            animated: true,
-            style: { stroke: '#52525b', strokeWidth: 2 }
-        }));
+        const formattedEdges = (architectureData.edges || []).map((e: any, i: number) => {
+            const source = e.source || e.from;
+            const target = e.target || e.to;
+            return {
+              ...e,
+              source,
+              target,
+              id: e.id || `edge-${i}-${source}-${target}`,
+              animated: true,
+              style: { stroke: '#52525b', strokeWidth: 2 }
+            };
+        });
 
-        setNodes(formattedNodes);
-        setEdges(formattedEdges);
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+          formattedNodes,
+          formattedEdges
+        );
+
+        setNodes(layoutedNodes);
+        setEdges(layoutedEdges);
         if (formattedNodes.length > 0) setSelectedNodeData(formattedNodes[0].data);
       }
     } catch (e) {
@@ -232,11 +277,8 @@ function ArchitectureContent() {
           <p className="text-zinc-400 mt-1">Interactive map of generated services and databases.</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={handleExport} variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2">
+          <Button onClick={handleExport} className="bg-orange-500 hover:bg-orange-600 text-white gap-2 border-0">
              Export PNG
-          </Button>
-          <Button onClick={() => navigate('/dashboard/code')} className="bg-primary hover:brightness-110 text-white gap-2">
-            <Code2 className="w-4 h-4" /> Generate Code
           </Button>
         </div>
       </div>
@@ -286,7 +328,9 @@ function ArchitectureContent() {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-white mb-2">Description</h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed">{selectedNodeData.description || "No description provided."}</p>
+                  <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3" title={selectedNodeData.description}>
+                    {selectedNodeData.description || "No description provided."}
+                  </p>
                 </div>
                 {selectedNodeData.tech && (
                   <div>
@@ -296,9 +340,6 @@ function ArchitectureContent() {
                     </div>
                   </div>
                 )}
-                <Button onClick={() => navigate('/dashboard/traceability')} className="w-full bg-zinc-100 text-zinc-900 hover:bg-zinc-200 mt-auto">
-                  View Traceability <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
               </>
             ) : (
               <div className="text-zinc-500 text-center mt-20">Select a node to view its details</div>

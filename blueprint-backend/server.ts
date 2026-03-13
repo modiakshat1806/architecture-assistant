@@ -6,6 +6,12 @@ import cors from "cors";
 import multer from "multer";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import { runPrdPipeline } from "./src/lib/pipeline/prdPipeline.js";
 import { syncSprint } from "./src/lib/integrations/clickup.js";
@@ -51,7 +57,27 @@ app.use("/webhooks", githubWebhookRouter);
 app.use("/webhooks", clickupWebhookRouter);
 app.use("/webhooks", slackWebhookRouter);
 
-const upload = multer({ storage: multer.memoryStorage() });
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure disk storage for Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage });
+
+// Serve static files from uploads folder
+app.use('/uploads', express.static('uploads'));
 
 /* =========================================================
    API ROUTES
@@ -104,50 +130,100 @@ app.post('/api/prd/upload', upload.single('prd'), async (req, res): Promise<any>
     };
 
     console.log("-> 6. Running Gemini AI Pipeline...");
-    const pipelineResult = await runPrdPipeline(documentPart);
+    const pipelineResult = await runPrdPipeline({
+      inlineData: {
+        data: fs.readFileSync(req.file.path).toString("base64"),
+        mimeType: req.file.mimetype,
+      },
+    });
 
-    console.log("-> 7. Saving Project & AI Analysis to DB...");
-    const savedProject = await prisma.project.create({
-      data: {
-        profileId: userProfile.id, // Safely use the confirmed profile ID
+    console.log("-> 7. Finding or Creating Project...");
+    let project = await prisma.project.findFirst({
+      where: {
+        profileId: userProfile.id,
         name: projectName || req.file.originalname.replace(".pdf", ""),
-        prdVersions: {
+      }
+    });
+
+    let isNewProject = false;
+    if (!project) {
+      isNewProject = true;
+      project = await prisma.project.create({
+        data: {
+          profileId: userProfile.id,
+          name: projectName || req.file.originalname.replace(".pdf", ""),
+        }
+      });
+      
+      await prisma.activity.create({
+        data: {
+          projectId: project.id,
+          type: 'PROJECT_CREATED',
+          description: `Project "${project.name}" created.`,
+          metadata: {}
+        }
+      });
+    }
+
+    const latestVersion = await prisma.prdVersion.findFirst({
+      where: { projectId: project.id },
+      orderBy: { versionNumber: 'desc' }
+    });
+
+    const nextVersionNum = (latestVersion?.versionNumber || 0) + 1;
+    const fileUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
+
+    console.log(`-> 8. Saving PRD Version ${nextVersionNum} & AI Analysis to DB...`);
+    const savedVersion = await prisma.prdVersion.create({
+      data: {
+        projectId: project.id,
+        versionNumber: nextVersionNum,
+        fileUrl: fileUrl,
+        parsedText: "Extracted via AI Pipeline",
+        analysis: {
           create: {
-            versionNumber: 1,
-            parsedText: "Extracted via Gemini AI",
-            analysis: {
-              create: {
-                features: pipelineResult.features || [],
-                stories: pipelineResult.stories || [],
-                tasks: pipelineResult.tasks || [],
-                sprints: pipelineResult.sprints || [],
-                architecture: JSON.stringify(pipelineResult.architecture || {}),
-                codeStructure: pipelineResult.codeStructure || [],
-                tests: pipelineResult.tests || [],
-                traceability: pipelineResult.traceability || {},
-                ambiguities: pipelineResult.ambiguities || [],
-                clarifications: pipelineResult.clarifications || [],
-                healthScore: pipelineResult.healthScore || {},
-                devops: pipelineResult.devops || {},
-              },
-            },
+            features: pipelineResult.features || [],
+            stories: pipelineResult.stories || [],
+            tasks: pipelineResult.tasks || [],
+            sprints: pipelineResult.sprints || [],
+            architecture: JSON.stringify(pipelineResult.architecture || {}),
+            codeStructure: pipelineResult.codeStructure || [],
+            tests: pipelineResult.tests || [],
+            traceability: pipelineResult.traceability || {},
+            ambiguities: pipelineResult.ambiguities || [],
+            clarifications: pipelineResult.clarifications || [],
+            healthScore: pipelineResult.healthScore || {},
+            devops: pipelineResult.devops || {},
           },
         },
-      },
-      include: {
-        prdVersions: {
-          include: {
-            analysis: true,
-          },
-        },
-      },
+      }
+    });
+
+    await prisma.activity.create({
+      data: {
+        projectId: project.id,
+        type: isNewProject ? 'PRD_UPLOADED' : 'PRD_UPDATED',
+        description: isNewProject 
+          ? `Initial PRD v1 uploaded.` 
+          : `PRD updated to version ${nextVersionNum}.`,
+        metadata: { version: nextVersionNum }
+      }
+    });
+
+    await prisma.activity.create({
+      data: {
+        projectId: project.id,
+        type: 'ANALYSIS_COMPLETED',
+        description: `Architecture analysis complete for v${nextVersionNum}.`,
+        metadata: { version: nextVersionNum }
+      }
     });
 
     console.log("=== UPLOAD COMPLETE & SAVED ===\n");
 
     return res.json({
       success: true,
-      projectId: savedProject.id,
+      projectId: project.id,
       data: pipelineResult,
     });
 
@@ -370,6 +446,41 @@ app.post("/api/sync-clickup", async (req, res) => {
 
     res.json({ success: true, result });
 
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 8. Fetch project activities
+ */
+app.get("/api/projects/:projectId/activities", async (req, res): Promise<any> => {
+  try {
+    const activities = await prisma.activity.findMany({
+      where: { projectId: req.params.projectId },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(activities);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 9. Fetch latest PRD info
+ */
+app.get("/api/projects/:projectId/latest-prd", async (req, res): Promise<any> => {
+  try {
+    const latestVersion = await prisma.prdVersion.findFirst({
+      where: { projectId: req.params.projectId },
+      orderBy: { versionNumber: 'desc' }
+    });
+
+    if (!latestVersion) {
+      return res.status(404).json({ error: "No PRD version found" });
+    }
+
+    res.json(latestVersion);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

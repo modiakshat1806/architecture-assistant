@@ -140,7 +140,9 @@ export default function Chat() {
 
   };
 
-  const currentOptions = questions[currentIndex]?.options || []
+  const handleChipClick = (text: string) => {
+    setInputValue(text);
+  };
 
   return (
 

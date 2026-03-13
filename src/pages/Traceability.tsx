@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +92,169 @@ export default function Traceability() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialTraceEdges);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [impactAnalysis, setImpactAnalysis] = useState(false);
+  const [originalEdges, setOriginalEdges] = useState<any[]>(initialTraceEdges);
+
+  // Load from local storage dynamically
+  useEffect(() => {
+    const rawData = localStorage.getItem("blueprint_project_data");
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        const aiFeatures = parsed.features || [];
+        const aiTasks = parsed.tasks || [];
+        const aiArch = parsed.architecture || { nodes: [], edges: [] };
+
+        if (!aiFeatures.length || !aiTasks.length) return;
+
+        const newNodes: any[] = [];
+        const newEdges: any[] = [];
+
+        // 1. Process Architecture Nodes
+        const servicesAndApis = aiArch.nodes || [];
+        
+        let services = servicesAndApis.filter((n: any) => !n.label?.toLowerCase().includes('api') && !n.label?.toLowerCase().includes('gateway'));
+        let apis = servicesAndApis.filter((n: any) => n.label?.toLowerCase().includes('api') || n.label?.toLowerCase().includes('gateway'));
+
+        if (services.length === 0) services = servicesAndApis;
+        if (apis.length === 0) apis = servicesAndApis;
+
+        // Fallbacks if absolutely no architecture
+        if (services.length === 0) services.push({ id: 's-mock', label: 'Core Service', type: 'service' });
+        if (apis.length === 0) apis.push({ id: 'a-mock', label: 'Core API', type: 'api' });
+
+        let taskY = 0;
+        const serviceNodeIds = new Set();
+        const apiNodeIds = new Set();
+
+        services.forEach((s: any, idx: number) => {
+          if (!serviceNodeIds.has(s.id)) {
+            newNodes.push({
+              id: s.id,
+              type: 'trace',
+              position: { x: 300, y: idx * 150 },
+              data: { label: s.label || s.id, type: 'service', badge: s.type || 'Microservice', description: s.description || 'Core service component' }
+            });
+            serviceNodeIds.add(s.id);
+          }
+        });
+
+        apis.forEach((a: any, idx: number) => {
+          if (!apiNodeIds.has(a.id)) {
+            let method = a.method;
+            let endpoint = a.endpoint;
+            
+            // If explicit method/endpoint are missing, try to parse from the label
+            const labelStr = (a.label || a.id).trim();
+            if (!method || !endpoint) {
+              const methodMatch = labelStr.match(/^(GET|POST|PUT|DELETE|PATCH)\s+(.*)/i);
+              if (methodMatch) {
+                method = methodMatch[1].toUpperCase();
+                endpoint = methodMatch[2].trim();
+              } else {
+                method = method || 'GET';
+                endpoint = endpoint || (labelStr.startsWith('/') ? labelStr : `/${labelStr.replace(/\s+/g, '-').toLowerCase()}`);
+              }
+            }
+
+            newNodes.push({
+              id: a.id,
+              type: 'trace',
+              position: { x: 600, y: idx * 120 },
+              data: { 
+                label: labelStr, 
+                type: 'api', 
+                badge: a.type || 'API', 
+                description: a.description || 'API endpoint',
+                method,
+                endpoint
+              }
+            });
+            apiNodeIds.add(a.id);
+          }
+        });
+
+        // 2. Loop over features and build chains
+        aiFeatures.forEach((f: any, fIdx: number) => {
+          const featureId = typeof f === 'string' ? `feat-${fIdx}` : (f.id || `feat-${fIdx}`);
+          const featureName = typeof f === 'string' ? f : (f.title || f.name);
+          const featureDesc = typeof f === 'string' ? "Feature requirements" : (f.description || "Core feature reqs");
+
+          newNodes.push({
+            id: featureId,
+            type: 'trace',
+            position: { x: 0, y: fIdx * 200 },
+            data: { label: featureName, type: 'requirement', badge: `FEAT-${fIdx+1}`, description: featureDesc }
+          });
+
+          // Connect Feature to a Service
+          const s = services[fIdx % services.length];
+          if (s) {
+            newEdges.push({
+              id: `e-${featureId}-${s.id}`,
+              source: featureId,
+              target: s.id,
+              animated: true,
+              style: { stroke: '#52525b', strokeWidth: 2 }
+            });
+
+            // Connect Service to an API
+            const a = apis[fIdx % apis.length];
+            if (a) {
+              const edgeId = `e-${s.id}-${a.id}`;
+              if (!newEdges.find(e => e.id === edgeId)) {
+                newEdges.push({
+                  id: edgeId,
+                  source: s.id,
+                  target: a.id,
+                  style: { stroke: '#52525b', strokeWidth: 2 }
+                });
+              }
+
+              // Connect API to Tasks
+              const featureTasks = aiTasks.filter((t: any) => typeof f === 'string' ? false : t.featureId === f.id);
+              let ftTasks = featureTasks;
+              // If no explicit featureId match, assign slice iteratively
+              if (ftTasks.length === 0) {
+                 const step = Math.max(1, Math.floor(aiTasks.length / aiFeatures.length));
+                 ftTasks = aiTasks.slice(fIdx * step, (fIdx + 1) * step);
+              }
+
+              ftTasks.forEach((t: any) => {
+                newNodes.push({
+                  id: t.id,
+                  type: 'trace',
+                  position: { x: 900, y: taskY },
+                  data: { label: t.title, type: 'task', badge: t.type || 'TASK', status: t.status || 'Open', description: t.description }
+                });
+                
+                newEdges.push({
+                  id: `e-${a.id}-${t.id}`,
+                  source: a.id,
+                  target: t.id,
+                  style: { stroke: '#52525b', strokeWidth: 2 }
+                });
+
+                taskY += 80;
+              });
+            }
+          }
+        });
+
+        const configuredEdges = newEdges.map(e => ({
+          ...e, 
+          markerEnd: { ...markerEnd, color: '#52525b' }
+        }));
+
+        if (newNodes.length > 0) {
+          setNodes(newNodes);
+          setEdges(configuredEdges);
+          setOriginalEdges(configuredEdges); // Store dynamic edges for impact analysis traversal
+        }
+      } catch (err) {
+        console.error("Failed to parse", err);
+      }
+    }
+  }, [setNodes, setEdges]);
 
   // Impact Analysis (Recursive Discovery)
   const performImpactAnalysis = useCallback((nodeId: string) => {
@@ -100,7 +263,7 @@ export default function Traceability() {
 
     const traverse = (id: string) => {
       affectedNodeIds.add(id);
-      initialTraceEdges.forEach(edge => {
+      originalEdges.forEach(edge => {
         if (edge.source === id) {
           affectedEdgeIds.add(edge.id);
           traverse(edge.target);
@@ -132,7 +295,7 @@ export default function Traceability() {
       description: `Analysis complete for ${nodeId}. Downstream dependencies highlighted.`,
       variant: "default"
     });
-  }, [setNodes, setEdges, toast]);
+  }, [originalEdges, setNodes, setEdges, toast]);
 
   const resetAnalysis = useCallback(() => {
     setNodes(nds => nds.map(n => ({
@@ -141,12 +304,12 @@ export default function Traceability() {
     })));
     setEdges(eds => eds.map(e => ({
       ...e,
-      animated: false,
-      style: { stroke: '#3f3f46', strokeWidth: 2 },
-      markerEnd
+      animated: originalEdges.find(o => o.id === e.id)?.animated || false,
+      style: { stroke: '#52525b', strokeWidth: 2 },
+      markerEnd: { ...markerEnd, color: '#52525b' }
     })));
     setImpactAnalysis(false);
-  }, [setNodes, setEdges]);
+  }, [originalEdges, setNodes, setEdges]);
 
   // Node Selection Handler
   const onNodeClick = (_: any, node: any) => {
@@ -209,17 +372,7 @@ export default function Traceability() {
           </CardHeader>
 
           <CardContent className="flex-1 p-0 bg-[#050505] relative">
-             <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-3 rounded-lg max-w-xs transition-all">
-                  <h4 className="text-xs font-bold text-white mb-1 flex items-center gap-2">
-                    <Zap className="w-3 h-3 text-amber-500" />
-                    Impact Analysis Enabled
-                  </h4>
-                  <p className="text-[10px] text-zinc-400 leading-normal">
-                    Click any <span className="text-blue-400 font-bold underline">Requirement node</span> to instantly see affected services, APIs, and tasks.
-                  </p>
-                </div>
-             </div>
+
 
             <ReactFlow
               nodes={nodes}
@@ -317,11 +470,6 @@ export default function Traceability() {
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-zinc-800">
-                   <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs h-9 gap-2">
-                     <Search className="w-3 h-3" /> View in Documentation
-                   </Button>
-                </div>
               </div>
 
               {selectedNode.data.type === 'requirement' && (

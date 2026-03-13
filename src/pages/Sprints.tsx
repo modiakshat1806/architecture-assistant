@@ -22,8 +22,18 @@ import {
   ListTodo
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Task {
   id: string;
@@ -34,6 +44,7 @@ interface Task {
   points: number;
   story: string;
   assignee: string;
+  description?: string;
 }
 
 export default function Sprints() {
@@ -45,6 +56,10 @@ export default function Sprints() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  // --- EDITING STATE ---
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // --- DATA LOADING ---
   useEffect(() => {
@@ -70,7 +85,8 @@ export default function Sprints() {
           points: t.points || t.storyPoints || 3,
           story: parentStory ? (parentStory.title || parentStory.name) : "General Architecture",
           // Mock assignees for UI aesthetics
-          assignee: t.assignee || ['Alex', 'Sarah', 'Mike', 'David'][i % 4] 
+          assignee: t.assignee || ['Alex', 'Sarah', 'Mike', 'David'][i % 4],
+          description: t.description || ""
         };
       });
 
@@ -79,6 +95,55 @@ export default function Sprints() {
       console.error("Error loading task data", e);
     }
   }, []);
+
+  const saveTaskDetails = () => {
+    if (!editingTask) return;
+
+    setTasks(prev => {
+      const updatedTasks = prev.map(t => t.id === editingTask.id ? editingTask : t);
+      
+      // PERSIST TO LOCAL STORAGE
+      const raw = localStorage.getItem("blueprint_project_data");
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          if (data.tasks) {
+            data.tasks = data.tasks.map((t: any) => {
+              const id = t.id || t.taskId;
+              if (id === editingTask.id) {
+                return { ...t, ...editingTask };
+              }
+              return t;
+            });
+            localStorage.setItem("blueprint_project_data", JSON.stringify(data));
+          }
+
+          // RECORD ACTIVITY
+          const activity = {
+            id: `act-${Date.now()}`,
+            type: 'TASK_UPDATED',
+            description: `Edited details for ${editingTask.id}`,
+            projectName: data.projectName || "Local Project",
+            createdAt: new Date().toISOString()
+          };
+          
+          const existingActivitiesRaw = localStorage.getItem("blueprint_local_activities");
+          const existingActivities = existingActivitiesRaw ? JSON.parse(existingActivitiesRaw) : [];
+          localStorage.setItem("blueprint_local_activities", JSON.stringify([activity, ...existingActivities].slice(0, 50)));
+
+        } catch (err) {
+          console.error("Error persisting task edit", err);
+        }
+      }
+      return updatedTasks;
+    });
+
+    setIsEditDialogOpen(false);
+    toast({
+      title: "Task Saved",
+      description: `Details for ${editingTask.id} have been updated.`
+    });
+  };
 
   // --- FILTERING ---
   const filteredTasks = useMemo(() => {
@@ -114,12 +179,64 @@ export default function Sprints() {
     if (!draggedTaskId) return;
 
     // Update local state instantly for UI
-    setTasks(prev => prev.map(t => t.id === draggedTaskId ? { ...t, status: newStatus } : t));
+    setTasks(prev => {
+      const updatedTasks = prev.map(t => t.id === draggedTaskId ? { ...t, status: newStatus } : t);
+      
+      // PERSIST TO LOCAL STORAGE
+      const raw = localStorage.getItem("blueprint_project_data");
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          // Update the specific task in the data object
+          if (data.tasks) {
+            data.tasks = data.tasks.map((t: any) => {
+              const id = t.id || t.taskId;
+              if (id === draggedTaskId) {
+                return { ...t, status: newStatus };
+              }
+              return t;
+            });
+            localStorage.setItem("blueprint_project_data", JSON.stringify(data));
+          }
+
+          // RECORD ACTIVITY
+          const activity = {
+            id: `act-${Date.now()}`,
+            type: 'TASK_UPDATED',
+            description: `Updated status of ${draggedTaskId} to ${newStatus}`,
+            projectName: data.projectName || "Local Project",
+            createdAt: new Date().toISOString()
+          };
+          
+          const existingActivitiesRaw = localStorage.getItem("blueprint_local_activities");
+          const existingActivities = existingActivitiesRaw ? JSON.parse(existingActivitiesRaw) : [];
+          localStorage.setItem("blueprint_local_activities", JSON.stringify([activity, ...existingActivities].slice(0, 50)));
+
+        } catch (err) {
+          console.error("Error persisting task status", err);
+        }
+      }
+      
+      return updatedTasks;
+    });
     setDraggedTaskId(null);
     
-  }, [draggedTaskId]);
+    toast({
+      title: "Task Updated",
+      description: `Task moved to ${newStatus === 'todo' ? 'To Do' : newStatus === 'in-progress' ? 'In Progress' : 'Done'}`
+    });
+  }, [draggedTaskId, toast]);
 
   // --- UTILITY FUNCTIONS ---
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'todo': return <Badge variant="outline" className="bg-zinc-950 text-zinc-400 border-zinc-800">To Do</Badge>;
+      case 'in-progress': return <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">In Progress</Badge>;
+      case 'done': return <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">Done</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
       case "high": 
@@ -172,7 +289,8 @@ export default function Sprints() {
             className="h-6 w-6 text-zinc-500 hover:text-white -mr-2 -mt-2"
             onClick={(e) => {
               e.stopPropagation();
-              toast({ title: "Task Options", description: `Opening settings for ${task.id}...` });
+              setEditingTask(task);
+              setIsEditDialogOpen(true);
             }}
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -183,6 +301,11 @@ export default function Sprints() {
           <BookOpen className="w-3 h-3 text-blue-400 shrink-0" />
           <span className="truncate">{task.story}</span>
         </div>
+        {task.description && (
+          <p className="text-[11px] text-zinc-500 mb-4 line-clamp-2 leading-relaxed">
+            {task.description}
+          </p>
+        )}
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-zinc-800/50">
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
             {task.priority}
@@ -357,17 +480,156 @@ export default function Sprints() {
         <TabsContent value="list" className="m-0">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="p-0">
-              <div className="text-center py-20 text-zinc-500 flex flex-col items-center">
-                <ListTodo className="w-12 h-12 text-zinc-700 mb-4" />
-                <p>List view is currently in development.</p>
-                <Button variant="link" className="text-primary mt-2" onClick={() => document.querySelector<HTMLButtonElement>('[value="board"]')?.click()}>
-                  Return to Board
-                </Button>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-zinc-400">
+                  <thead className="text-xs uppercase bg-zinc-950/50 text-zinc-500 border-b border-zinc-800">
+                    <tr>
+                      <th className="px-6 py-4 font-medium">Task</th>
+                      <th className="px-6 py-4 font-medium">Status</th>
+                      <th className="px-6 py-4 font-medium">Priority</th>
+                      <th className="px-6 py-4 font-medium">Type</th>
+                      <th className="px-6 py-4 font-medium">Story</th>
+                      <th className="px-6 py-4 font-medium">Points</th>
+                      <th className="px-6 py-4 font-medium text-right">Assignee</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50">
+                    {filteredTasks.map((task) => (
+                      <tr key={task.id} className="hover:bg-zinc-800/30 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-zinc-500 text-[10px] font-mono mb-1">{task.id}</span>
+                            <span className="text-white font-medium group-hover:text-primary transition-colors">{task.title}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {getStatusBadge(task.status)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 capitalize text-xs">
+                          {task.type}
+                        </td>
+                        <td className="px-6 py-4 max-w-[200px]">
+                          <div className="flex items-center gap-1 text-xs truncate">
+                            <BookOpen className="w-3 h-3 text-blue-400 shrink-0" />
+                            {task.story}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="w-6 h-6 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-bold text-primary">
+                            {task.points}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                             <span className="text-xs">{task.assignee}</span>
+                             <Avatar className="w-6 h-6 border border-zinc-700">
+                              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignee}`} />
+                              <AvatarFallback>{task.assignee?.substring(0, 1) || 'U'}</AvatarFallback>
+                            </Avatar>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredTasks.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-20 text-zinc-600">
+                          <p>No tasks found matching your filters.</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* TASK EDIT DIALOG */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Task Details</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Update the details for task <span className="text-white font-mono">{editingTask?.id}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Task Title</Label>
+              <Input 
+                id="title" 
+                value={editingTask?.title || ""} 
+                onChange={(e) => editingTask && setEditingTask({...editingTask, title: e.target.value})}
+                className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-primary"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea 
+                id="description" 
+                placeholder="Describe the technical requirements or sub-tasks..."
+                value={editingTask?.description || ""} 
+                onChange={(e) => editingTask && setEditingTask({...editingTask, description: e.target.value})}
+                className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-primary min-h-[120px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="priority">Priority</Label>
+                <select 
+                  id="priority"
+                  className="bg-zinc-950 border-zinc-800 text-white rounded-md p-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                  value={editingTask?.priority || "Medium"}
+                  onChange={(e) => editingTask && setEditingTask({...editingTask, priority: e.target.value})}
+                >
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="points">Points</Label>
+                <Input 
+                  id="points" 
+                  type="number"
+                  value={editingTask?.points || 0} 
+                  onChange={(e) => editingTask && setEditingTask({...editingTask, points: parseInt(e.target.value) || 0})}
+                  className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-primary"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="assignee">Assignee</Label>
+              <Input 
+                id="assignee" 
+                placeholder="Enter name (e.g. Alex, Sarah...)"
+                value={editingTask?.assignee || ""} 
+                onChange={(e) => editingTask && setEditingTask({...editingTask, assignee: e.target.value})}
+                className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-primary"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+              Cancel
+            </Button>
+            <Button onClick={saveTaskDetails} className="bg-primary hover:brightness-110 text-white">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

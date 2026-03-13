@@ -4,7 +4,7 @@ export interface Feature {
   id: string;
   name: string;
   description: string;
-  priority: "high" | "medium" | "low";
+  complexity: "High" | "Medium" | "Low";
 }
 
 export interface UserStory {
@@ -36,8 +36,14 @@ export interface CodeStructure {
 }
 
 export interface TaskTest {
+  id: string;
   taskId: string;
-  tests: string[];
+  method: string;
+  endpoint: string;
+  description: string;
+  expected: string;
+  status: "pass" | "fail" | "edge";
+  category: "functional" | "edge" | "negative" | "unit";
 }
 
 export interface Ambiguity {

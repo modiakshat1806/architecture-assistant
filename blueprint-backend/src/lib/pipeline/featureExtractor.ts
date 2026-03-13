@@ -17,9 +17,9 @@ const featureSchema: Schema = {
           id: { type: Type.STRING, description: "e.g., feat-1" },
           name: { type: Type.STRING },
           description: { type: Type.STRING },
-          priority: { type: Type.STRING, description: "Must be one of: high, medium, low" }
+          complexity: { type: Type.STRING, description: "Must be one of: High, Medium, Low" }
         },
-        required: ["id", "name", "description", "priority"]
+        required: ["id", "name", "description", "complexity"]
       }
     }
   },

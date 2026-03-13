@@ -41,6 +41,7 @@ export default function Analysis() {
     if (rawData) {
       try {
         const parsed = JSON.parse(rawData);
+        console.log("Analysis Debug - Raw Data:", parsed);
 
         // 1. Set Top-level Data
         setData({
@@ -54,15 +55,19 @@ export default function Analysis() {
         // 2. Safely format Features
         if (parsed.features && Array.isArray(parsed.features)) {
           const formattedFeatures = parsed.features.map((f: any, index: number) => {
+            const featureId = f.id || `feat-${index}`;
+            // Count tasks that belong to this feature
+            const taskCount = (parsed.tasks || []).filter((t: any) => t.featureId === featureId).length;
+
             if (typeof f === 'string') {
-              return { id: `feat-${index}`, title: f, description: "Extracted feature.", complexity: "Medium", tasks: 0 };
+              return { id: featureId, title: f, description: "Extracted feature.", complexity: "Medium", tasks: taskCount };
             }
             return {
-              id: f.id || `feat-${index}`,
+              id: featureId,
               title: f.title || f.name || "Unnamed Feature",
               description: f.description || "No description provided.",
               complexity: f.complexity || "Medium",
-              tasks: f.tasks?.length || f.taskCount || 0
+              tasks: taskCount
             };
           });
           setExtractedFeatures(formattedFeatures);
@@ -99,6 +104,11 @@ export default function Analysis() {
           });
           setMissingRequirements(formattedMissing);
         }
+
+        console.log("Analysis Debug - Final States:", {
+          ambiguitiesCount: detectedAmbiguities.length,
+          missingCount: missingRequirements.length
+        });
 
       } catch (e) {
         console.error("Error parsing blueprint data", e);

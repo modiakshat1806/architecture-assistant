@@ -9,68 +9,155 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Clock, FileText, ArrowRight, Activity, ListTodo, RefreshCcw, CheckCircle2, Eye, Badge, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase";
 
-// Keep recent activity mocked for now, or update it later
-const recentActivity = [
-  {
-    id: 1,
-    project: "E-Commerce Replatforming",
-    type: "PRD_UPDATE",
-    description: "PRD updated: Added 'Loyalty Points' logic.",
-    timestamp: "12 mins ago",
-    icon: RefreshCcw,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10"
-  },
-  // ... other mock activities
-];
+// Helper to get relative time
+function getRelativeTime(date: string) {
+  const now = new Date();
+  const past = new Date(date);
+  const diffInMs = now.getTime() - past.getTime();
+  const diffInMins = Math.floor(diffInMs / 60000);
+
+  if (diffInMins < 1) return "Just now";
+  if (diffInMins < 60) return `${diffInMins} mins ago`;
+  const diffInHours = Math.floor(diffInMins / 60);
+  if (diffInHours < 24) return `${diffInHours} hours ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  return `${diffInDays} days ago`;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [newProjectName, setNewProjectName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [userName, setUserName] = useState("Developer"); 
-  
+  const [userName, setUserName] = useState("Developer");
+
   // ---> ADDED: States for real projects
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [activities, setActivities] = useState<any[]>([]);
 
   // Fetch the logged in user's name AND their real projects
   useEffect(() => {
     const fetchUserAndProjects = async () => {
       setIsLoadingProjects(true);
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        console.log("User ID:", user.id); // Debug: Check user ID
-        setUserName(user.user_metadata?.full_name || "Developer");
-        
-        // Fetch real projects from Supabase database
-        // Changed table name to lowercase 'projects' (adjust if your schema differs)
-        const { data, error } = await supabase
-          .from('Project')        // <-- Matches Prisma schema
-          .select('*')
-          .eq('profileId', user.id)  // <-- Matches Prisma schema
-          .order('updatedAt', { ascending: false });
 
-        console.log("Fetched projects:", data, "Error:", error); // Debug: Check results
+      if (user) {
+        setUserName(user.user_metadata?.full_name || "Developer");
+
+        // 1. Get projects from DB
+        const { data: dbProjects, error } = await supabase
+          .from('Project')
+          .select('*')
+          .eq('profileId', user.id)
+          .order('updatedAt', { ascending: false });
 
         if (error) {
           console.error("Error fetching projects:", error);
-        } else if (data) {
-          setProjects(data);
         }
+
+        let combinedProjects = dbProjects || [];
+
+        // 2. Add local storage project as a fallback/current session
+        const localRaw = localStorage.getItem("blueprint_project_data");
+        if (localRaw) {
+          try {
+            const localData = JSON.parse(localRaw);
+            // Check if this project (by name OR by real stored ID) is already in the DB list
+            const alreadyExists = combinedProjects.some(p =>
+              (localData.id && p.id === localData.id) || p.name === localData.projectName
+            );
+
+            if (!alreadyExists) {
+              combinedProjects = [
+                {
+                  id: localData.id || 'local-session',
+                  name: localData.projectName,
+                  updatedAt: new Date().toISOString(),
+                  isLocal: true,
+                  healthScore: localData.healthScore?.score || 0,
+                  stats: {
+                    features: localData.features?.length || 0,
+                    tasks: localData.tasks?.length || 0,
+                  }
+                },
+                ...combinedProjects
+              ];
+            }
+          } catch (e) {
+            console.error("Error parsing local data", e);
+          }
+        }
+
+        setProjects(combinedProjects);
       } else {
-        navigate("/auth"); // Redirect if not logged in
+        navigate("/auth");
       }
       setIsLoadingProjects(false);
     };
-    
+
     fetchUserAndProjects();
   }, [navigate]);
+
+  // Fetch activities for all projects
+  useEffect(() => {
+    const fetchAllActivities = async () => {
+      const dbProjectIds = projects.filter(p => !p.isLocal).map(p => p.id);
+      let allActivities: any[] = [];
+
+      for (const id of dbProjectIds) {
+        try {
+          const res = await fetch(`http://localhost:5000/api/projects/${id}/activities`);
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const projectName = projects.find(p => p.id === id)?.name || "Project";
+            allActivities = [...allActivities, ...data.map(a => ({ ...a, projectName }))];
+          }
+        } catch (e) {
+          console.error("Error fetching activities", e);
+        }
+      }
+
+      if (projects.some(p => p.isLocal)) {
+        const localProject = projects.find(p => p.isLocal);
+        
+        // FETCH FROM LOCAL STORAGE
+        const localActivitiesRaw = localStorage.getItem("blueprint_local_activities");
+        const localActivities = localActivitiesRaw ? JSON.parse(localActivitiesRaw) : [];
+        
+        // Fallback for first-time session
+        const defaultLocalActivities = [
+          {
+            id: 'local-1',
+            type: 'ANALYSIS_COMPLETED',
+            description: "Final architecture analysis ready.",
+            projectName: localProject.name,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 'local-2',
+            type: 'PRD_UPLOADED',
+            description: "Initial PRD interpreted.",
+            projectName: localProject.name,
+            createdAt: new Date(Date.now() - 120000).toISOString()
+          }
+        ];
+
+        const combinedLocal = localActivities.length > 0 ? localActivities : defaultLocalActivities;
+        allActivities = [...combinedLocal, ...allActivities];
+      }
+
+      allActivities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setActivities(allActivities.slice(0, 10)); // Top 10
+    };
+
+    if (projects.length > 0) {
+      fetchAllActivities();
+    }
+  }, [projects]);
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,10 +171,32 @@ export default function Dashboard() {
     toast({ title: `Opening ${section}`, description: "This feature is coming in the next update." });
   };
 
-  const handlePRDAction = (projectId: string, action: string) => {
-    toast({ title: `${action}`, description: `Navigating to ${action.toLowerCase()} flow...` });
-    if (action === "Update PRD") navigate('/dashboard/upload');
-    if (action === "View PRD") navigate('/dashboard/overview');
+  const handlePRDAction = async (project: any, action: string) => {
+    if (action === "Update PRD") {
+      navigate('/dashboard/upload', { state: { projectName: project.name, isUpdateFlow: true } });
+    }
+
+    if (action === "View PRD") {
+      const targetId = project.id;
+
+      if (targetId === 'local-session') {
+        toast({ title: "Local Session", description: "Save this project to enable cloud storage and PDF viewing." });
+        return;
+      }
+
+      try {
+        toast({ title: "Opening PRD", description: "Locating PDF file..." });
+        const res = await fetch(`http://localhost:5000/api/projects/${targetId}/latest-prd`);
+        const data = await res.json();
+        if (data.fileUrl) {
+          window.open(data.fileUrl, '_blank');
+        } else {
+          throw new Error("PDF not found");
+        }
+      } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: "Could not open original PDF." });
+      }
+    }
   };
 
   return (
@@ -161,9 +270,19 @@ export default function Dashboard() {
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-white text-lg group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                    <span className="text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20">
-                      Active
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider border ${project.isLocal
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
+                          : "bg-green-500/10 text-green-400 border-green-500/20"
+                        }`}>
+                        {project.isLocal ? "Currently Working" : "Active / Ready"}
+                      </span>
+                      {project.healthScore !== undefined && project.healthScore > 0 && (
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+                          Health: <span className="text-primary">{project.healthScore}%</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <CardDescription className="flex items-center gap-1.5 text-zinc-500 mt-2">
                     <Clock className="w-3 h-3" />
@@ -188,7 +307,7 @@ export default function Dashboard() {
                       className="bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2 h-8 text-xs"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handlePRDAction(project.id, "View PRD");
+                        handlePRDAction(project, "View PRD");
                       }}
                     >
                       <Eye className="w-3 h-3" /> View PRD
@@ -199,7 +318,7 @@ export default function Dashboard() {
                       className="bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2 h-8 text-xs"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handlePRDAction(project.id, "Update PRD");
+                        handlePRDAction(project, "Update PRD");
                       }}
                     >
                       <RefreshCcw className="w-3 h-3" /> Update PRD
@@ -212,7 +331,48 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* ... (The rest of your Overview/Recent Activity sections remain exactly the same) ... */}
+      {/* Recent Activity Section */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          {activities.length > 0 ? (
+            activities.map((activity) => (
+              <div
+                key={activity.id}
+                className="flex items-center justify-between p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:bg-zinc-900 transition-colors group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`p-2 rounded-lg ${activity.type === 'ANALYSIS_COMPLETED' ? 'bg-green-500/10' :
+                      activity.type === 'PRD_UPDATED' ? 'bg-blue-500/10' : 'bg-primary/10'
+                    }`}>
+                    {activity.type === 'ANALYSIS_COMPLETED' ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    ) : activity.type === 'PRD_UPDATED' ? (
+                      <RefreshCcw className="w-5 h-5 text-blue-400" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{activity.description}</p>
+                    <p className="text-xs text-zinc-500">
+                      {activity.projectName} • {getRelativeTime(activity.createdAt)}
+                      {activity.metadata?.version && ` • Version ${activity.metadata.version}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-12 text-center border border-dashed border-zinc-800 rounded-lg bg-zinc-900/30">
+              <p className="text-zinc-500">No project activity found yet.</p>
+            </div>
+          )}
+        </div>
+      </section>
     </DashboardLayout>
   );
 }

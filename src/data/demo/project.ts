@@ -7,15 +7,15 @@ export const demoProject = {
   completeness: 71,
   complexity: 'Medium-High',
   createdAt: '2025-03-04T10:00:00Z',
-  taskCount: 89,
-  sprintCount: 4,
+  taskCount: 18,
+  sprintCount: 8,
   features: [
-    { id: 'feat-1', name: 'Authentication System', storyCount: 4, taskCount: 12, complexity: 'High' },
-    { id: 'feat-2', name: 'Restaurant Management', storyCount: 5, taskCount: 18, complexity: 'High' },
-    { id: 'feat-3', name: 'Order Workflow', storyCount: 4, taskCount: 16, complexity: 'Critical' },
-    { id: 'feat-4', name: 'Payment Processing', storyCount: 3, taskCount: 14, complexity: 'High' },
-    { id: 'feat-5', name: 'Driver Dispatch', storyCount: 4, taskCount: 15, complexity: 'High' },
-    { id: 'feat-6', name: 'Notifications & Alerts', storyCount: 4, taskCount: 14, complexity: 'Medium' },
+    { id: 'feat-1', name: 'Authentication System', storyCount: 1, taskCount: 3, complexity: 'High' },
+    { id: 'feat-2', name: 'Restaurant Management', storyCount: 1, taskCount: 4, complexity: 'High' },
+    { id: 'feat-3', name: 'Order Workflow', storyCount: 1, taskCount: 5, complexity: 'Critical' },
+    { id: 'feat-4', name: 'Payment Processing', storyCount: 1, taskCount: 2, complexity: 'High' },
+    { id: 'feat-5', name: 'Driver Dispatch', storyCount: 1, taskCount: 2, complexity: 'High' },
+    { id: 'feat-6', name: 'Notifications & Alerts', storyCount: 1, taskCount: 2, complexity: 'Medium' },
   ],
 };
 

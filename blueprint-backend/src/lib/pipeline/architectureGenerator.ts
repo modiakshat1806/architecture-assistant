@@ -14,9 +14,11 @@ const archSchema: Schema = {
         properties: {
           id: { type: Type.STRING },
           label: { type: Type.STRING },
-          type: { type: Type.STRING, description: "e.g., database, service, frontend, api" }
+          type: { type: Type.STRING, description: "e.g., database, service, frontend, api" },
+          description: { type: Type.STRING, description: "A short description of what this component does" },
+          tech: { type: Type.STRING, description: "The primary technology stack for this component (e.g. React, Node.js, PostgreSQL)" }
         },
-        required: ["id", "label", "type"]
+        required: ["id", "label", "type", "description"]
       }
     },
     edges: {

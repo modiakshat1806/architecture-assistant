@@ -29,7 +29,7 @@ export default function Processing() {
           setCurrentStep((prev) => prev + 1);
         }
       }, 2500); // 2.5 seconds per step for demo purposes
-      
+
       return () => clearTimeout(timer);
     }
   }, [currentStep]);
@@ -47,7 +47,7 @@ export default function Processing() {
               {isComplete ? "Architecture Generated" : "Processing PRD..."}
             </h1>
             <p className="text-zinc-400 max-w-lg mx-auto text-lg">
-              {isComplete 
+              {isComplete
                 ? "Your blueprint is ready. Review the analysis, architecture, and generated tasks."
                 : "Our AI is analyzing your document and building out your project's technical foundation."}
             </p>
@@ -69,19 +69,19 @@ export default function Processing() {
               >
                 <Card className={`
                   p-6 border-2 transition-all duration-500 flex items-start gap-4
-                  ${isActive ? "bg-zinc-900 border-primary-500/50 shadow-[0_0_30px_-5px_rgba(59,130,246,0.3)]" : 
-                    isDone ? "bg-zinc-900 border-green-500/20" : 
-                    "bg-zinc-950 border-zinc-800 opacity-50"}
+                  ${isActive ? "bg-zinc-900 border-primary-500/50 shadow-[0_0_30px_-5px_rgba(59,130,246,0.3)]" :
+                    isDone ? "bg-zinc-900 border-green-500/20" :
+                      "bg-zinc-950 border-zinc-800 opacity-50"}
                 `}>
                   <div className={`
                     w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0
-                    ${isActive ? "bg-primary-500/20 text-primary-400" : 
-                      isDone ? "bg-green-500/20 text-green-400" : 
-                      "bg-zinc-800 text-zinc-500"}
+                    ${isActive ? "bg-primary-500/20 text-primary-400" :
+                      isDone ? "bg-green-500/20 text-green-400" :
+                        "bg-zinc-800 text-zinc-500"}
                   `}>
-                    {isDone ? <CheckCircle2 className="w-6 h-6" /> : 
-                     isActive ? <Loader2 className="w-6 h-6 animate-spin" /> : 
-                     <Icon className="w-6 h-6" />}
+                    {isDone ? <CheckCircle2 className="w-6 h-6" /> :
+                      isActive ? <Loader2 className="w-6 h-6 animate-spin" /> :
+                        <Icon className="w-6 h-6" />}
                   </div>
                   <div>
                     <h3 className={`text-lg font-semibold mb-1 ${isActive || isDone ? "text-white" : "text-zinc-500"}`}>
@@ -102,8 +102,8 @@ export default function Processing() {
           className="h-16" // Fixed height to prevent layout shift
         >
           {isComplete && (
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={() => navigate("/dashboard/analysis")}
               className="bg-primary hover:brightness-110 text-white text-lg px-8 gap-2 glow-primary"
             >

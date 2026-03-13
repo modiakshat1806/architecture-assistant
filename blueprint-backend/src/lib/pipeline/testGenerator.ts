@@ -13,13 +13,16 @@ const testSchema: Schema = {
       items: {
         type: Type.OBJECT,
         properties: {
+          id: { type: Type.STRING },
           taskId: { type: Type.STRING },
-          tests: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING, description: "Description of a specific test case" } 
-          }
+          method: { type: Type.STRING, description: "HTTP method (GET, POST, etc.) or 'UNIT' for unit tests" },
+          endpoint: { type: Type.STRING, description: "API endpoint, or function name for unit tests" },
+          description: { type: Type.STRING },
+          expected: { type: Type.STRING },
+          status: { type: Type.STRING, description: "Must be one of: 'pass', 'fail', 'edge'" },
+          category: { type: Type.STRING, description: "Must be one of: 'functional', 'edge', 'negative', 'unit'" }
         },
-        required: ["taskId", "tests"]
+        required: ["id", "taskId", "method", "endpoint", "description", "expected", "status", "category"]
       }
     }
   },

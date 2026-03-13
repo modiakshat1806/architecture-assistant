@@ -51,6 +51,19 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [backlogStories, setBacklogStories] = useState<UserStory[]>(DEFAULT_BACKLOG);
+  const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
+
+  const toggleStory = (id: string) => {
+    setExpandedStories(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const rawData = localStorage.getItem("blueprint_project_data");
@@ -238,27 +251,41 @@ export default function Tasks() {
 
       <div className="space-y-6">
         {filteredStories.length > 0 ? (
-          filteredStories.map((story) => (
+          filteredStories.map((story, index) => (
             <Card key={story.id} className="bg-zinc-900 border-zinc-800 overflow-hidden shadow-lg border-l-4 border-l-primary/30">
               {/* Story Header */}
-              <CardHeader className="border-b border-zinc-800 bg-zinc-950/80 py-4 flex flex-row items-start justify-between gap-4">
-                <div className="flex gap-3 items-start">
-                  <div className="mt-1 bg-blue-500/10 p-1.5 rounded-md border border-blue-500/20 text-blue-400 shrink-0">
+              <CardHeader className="border-b border-zinc-800 bg-zinc-950/80 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex gap-3 items-center">
+                  <div className="bg-blue-500/10 p-1.5 rounded-md border border-blue-500/20 text-blue-400 shrink-0">
                     <BookOpen className="w-4 h-4" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-white text-base">{story.title}</CardTitle>
-                      <span className="text-xs font-mono text-zinc-500">{story.id}</span>
-                    </div>
-                    <p className="text-sm text-zinc-400 mt-1">{story.description}</p>
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-white text-base">Task Group {index + 1}</CardTitle>
+                    <span className="text-xs font-mono text-zinc-500">{story.id}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 shrink-0">
-                  <span className="text-xs text-zinc-400 font-medium">Story Points:</span>
-                  <span className="text-sm font-bold text-primary">{story.totalPoints}</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleStory(story.id)}
+                    className="h-8 border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 transition-colors"
+                  >
+                    {expandedStories.has(story.id) ? "Hide Story" : "View Story"}
+                  </Button>
+                  <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
+                    <span className="text-xs text-zinc-400 font-medium">Story Points:</span>
+                    <span className="text-sm font-bold text-primary">{story.totalPoints}</span>
+                  </div>
                 </div>
               </CardHeader>
+
+              {expandedStories.has(story.id) && (
+                <div className="px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <h4 className="text-sm font-semibold text-white mb-2">{story.title}</h4>
+                  <p className="text-sm text-zinc-400">{story.description}</p>
+                </div>
+              )}
 
               {/* Tasks inside the Story */}
               <CardContent className="p-0">
