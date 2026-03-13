@@ -30,11 +30,7 @@ model Project {
 
   profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
   prdVersions PrdVersion[]
-<<<<<<< Updated upstream
-  githubRepo  GitHubRepoMapping?
-=======
   activities  Activity[]
->>>>>>> Stashed changes
 }
 
 model PrdVersion {
