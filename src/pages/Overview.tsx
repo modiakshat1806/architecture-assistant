@@ -115,6 +115,53 @@ export default function Overview() {
     }
   }, []);
 
+  const handleDownloadRequestly = async () => {
+    try {
+      const projectId = localStorage.getItem("blueprint_project_id");
+      if (!projectId) {
+         console.warn("No active project ID found in localStorage");
+         return;
+      }
+
+      const res = await fetch(`http://localhost:5000/api/projects/${projectId}/requestly-export`);
+      if (!res.ok) throw new Error("Failed to fetch Requestly config");
+      
+      const config = await res.json();
+      
+      // Trigger download
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `requestly-rules-mocks-${data.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading Requestly config:", err);
+      // Fallback: If not found in DB (e.g. old project), try reading from local storage if appended there
+      const rawData = localStorage.getItem("blueprint_project_data");
+      if (rawData) {
+         try {
+             const parsed = JSON.parse(rawData);
+             if (parsed.requestlyConfig) {
+                  const blob = new Blob([JSON.stringify(parsed.requestlyConfig, null, 2)], { type: "application/json" });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `requestly-rules-mocks-local-${data.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+             }
+         } catch(e) {}
+      }
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8 max-w-6xl mx-auto">
@@ -130,7 +177,10 @@ export default function Overview() {
             <h1 className="text-4xl font-bold text-white tracking-tight leading-tight">{data.name}</h1>
             <p className="text-zinc-400 mt-3 text-lg leading-relaxed max-w-3xl">{data.description}</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+             <Button onClick={handleDownloadRequestly} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg h-11 px-6">
+              <Zap className="w-4 h-4" /> Download Requestly Rules
+            </Button>
             <Button onClick={() => navigate("/dashboard/analysis")} className="bg-primary hover:brightness-110 text-white gap-2 shadow-lg glow-orange h-11 px-6">
               View Analysis <ArrowRight className="w-4 h-4" />
             </Button>

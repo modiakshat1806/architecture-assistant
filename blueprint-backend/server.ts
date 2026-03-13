@@ -1,4 +1,4 @@
-// server.ts
+// server.ts - Reloaded for optimization
 
 import "dotenv/config";
 import express from "express";
@@ -32,6 +32,20 @@ dotenv.config({ debug: true });
 
 const app = express();
 const prisma = new PrismaClient();
+
+// ==========================================
+// GLOBAL ERROR HANDLERS (DEBUGGING)
+// ==========================================
+process.on('uncaughtException', (err) => {
+  console.error('\n🔥 CRITICAL: UNCAUGHT EXCEPTION');
+  console.error(err.stack || err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('\n⚠️ CRITICAL: UNHANDLED REJECTION');
+  console.error('Reason:', reason);
+});
+// ==========================================
 
 app.use(cors());
 app.use(
@@ -142,81 +156,35 @@ app.post('/api/prd/upload', upload.single('prd'), async (req, res): Promise<any>
       where: {
         profileId: userProfile.id,
         name: projectName || req.file.originalname.replace(".pdf", ""),
-      }
-    });
-
-    let isNewProject = false;
-    if (!project) {
-      isNewProject = true;
-      project = await prisma.project.create({
-        data: {
-          profileId: userProfile.id,
-          name: projectName || req.file.originalname.replace(".pdf", ""),
-        }
-      });
-      
-      await prisma.activity.create({
-        data: {
-          projectId: project.id,
-          type: 'PROJECT_CREATED',
-          description: `Project "${project.name}" created.`,
-          metadata: {}
-        }
-      });
-    }
-
-    const latestVersion = await prisma.prdVersion.findFirst({
-      where: { projectId: project.id },
-      orderBy: { versionNumber: 'desc' }
-    });
-
-    const nextVersionNum = (latestVersion?.versionNumber || 0) + 1;
-    const fileUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
-
-    console.log(`-> 8. Saving PRD Version ${nextVersionNum} & AI Analysis to DB...`);
-    const savedVersion = await prisma.prdVersion.create({
-      data: {
-        projectId: project.id,
-        versionNumber: nextVersionNum,
-        fileUrl: fileUrl,
-        parsedText: "Extracted via AI Pipeline",
-        analysis: {
+        prdVersions: {
           create: {
-            features: pipelineResult.features || [],
-            stories: pipelineResult.stories || [],
-            tasks: pipelineResult.tasks || [],
-            sprints: pipelineResult.sprints || [],
-            architecture: JSON.stringify(pipelineResult.architecture || {}),
-            codeStructure: pipelineResult.codeStructure || [],
-            tests: pipelineResult.tests || [],
-            traceability: pipelineResult.traceability || {},
-            ambiguities: pipelineResult.ambiguities || [],
-            clarifications: pipelineResult.clarifications || [],
-            healthScore: pipelineResult.healthScore || {},
-            devops: pipelineResult.devops || {},
+            versionNumber: 1,
+            parsedText: "Extracted via Gemini AI",
+            analysis: {
+              create: {
+                features: pipelineResult.features || [],
+                stories: pipelineResult.stories || [],
+                tasks: pipelineResult.tasks || [],
+                sprints: pipelineResult.sprints || [],
+                architecture: JSON.stringify(pipelineResult.architecture || {}),
+                codeStructure: pipelineResult.codeStructure || [],
+                tests: pipelineResult.tests || [],
+                traceability: pipelineResult.traceability || {},
+                healthScore: pipelineResult.healthScore || {},
+                devops: pipelineResult.devops || {},
+                requestlyConfig: pipelineResult.requestlyConfig || {},
+              },
+            },
           },
         },
-      }
-    });
-
-    await prisma.activity.create({
-      data: {
-        projectId: project.id,
-        type: isNewProject ? 'PRD_UPLOADED' : 'PRD_UPDATED',
-        description: isNewProject 
-          ? `Initial PRD v1 uploaded.` 
-          : `PRD updated to version ${nextVersionNum}.`,
-        metadata: { version: nextVersionNum }
-      }
-    });
-
-    await prisma.activity.create({
-      data: {
-        projectId: project.id,
-        type: 'ANALYSIS_COMPLETED',
-        description: `Architecture analysis complete for v${nextVersionNum}.`,
-        metadata: { version: nextVersionNum }
-      }
+      },
+      include: {
+        prdVersions: {
+          include: {
+            analysis: true,
+          },
+        },
+      },
     });
 
     console.log("=== UPLOAD COMPLETE & SAVED ===\n");
@@ -228,8 +196,28 @@ app.post('/api/prd/upload', upload.single('prd'), async (req, res): Promise<any>
     });
 
   } catch (error: any) {
-    console.error("\n❌ PIPELINE ERROR:", error);
+    console.error("\n❌ PIPELINE ERROR (FULL STACK):");
+    console.error(error.stack || error);
     return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 1.5. Fetch Requestly Mock Config
+ */
+app.get("/api/projects/:projectId/requestly-export", async (req, res) => {
+  try {
+    const analysis = await prisma.pipelineAnalysis.findFirst({
+      where: { prdVersion: { projectId: req.params.projectId } },
+    });
+
+    if (!analysis || !analysis.requestlyConfig) {
+      return res.status(404).json({ error: "No Requestly config found for this project." });
+    }
+
+    res.json(analysis.requestlyConfig);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -435,14 +423,102 @@ app.post("/api/push-to-github", async (req, res) => {
 });
 
 /**
+ * ClickUp OAuth Endpoints
+ */
+app.get("/api/clickup/auth-url", (req, res) => {
+  const clientId = process.env.CLICKUP_CLIENT_ID;
+  const redirectUri = process.env.CLICKUP_REDIRECT_URI || "http://localhost:5173/auth/clickup/callback";
+
+  if (!clientId) {
+    return res.status(500).json({ error: "CLICKUP_CLIENT_ID not configured in backend." });
+  }
+
+  const authUrl = `https://app.clickup.com/api?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  res.json({ url: authUrl });
+});
+
+app.post("/api/clickup/callback", async (req, res) => {
+  try {
+    const { code, profileId } = req.body;
+
+    if (!code || !profileId) {
+      return res.status(400).json({ error: "Authorization code and profileId are required" });
+    }
+
+    const clientId = process.env.CLICKUP_CLIENT_ID;
+    const clientSecret = process.env.CLICKUP_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: "ClickUp OAuth credentials not configured." });
+    }
+
+    // Exchange code for token
+    const tokenResponse = await fetch(`https://api.clickup.com/api/v2/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code
+      })
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      throw new Error(tokenData.err || "Failed to exchange token with ClickUp");
+    }
+
+    // Save token to Profile DB
+    await prisma.profile.update({
+      where: { id: profileId },
+      data: { clickupToken: tokenData.access_token }
+    });
+
+    res.json({ success: true, message: "ClickUp connected successfully!" });
+  } catch (error: any) {
+    console.error("ClickUp Callback Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/clickup/status", async (req, res) => {
+  try {
+    const { profileId } = req.query;
+    if (!profileId) return res.status(400).json({ error: "profileId required" });
+
+    const profile = await prisma.profile.findUnique({ where: { id: profileId as string } });
+
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    res.json({ isConnected: !!profile.clickupToken });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Sync sprint to ClickUp
  */
 app.post("/api/sync-clickup", async (req, res) => {
   try {
+    const { projectId, profileId, sprint, listId } = req.body;
 
-    const { projectId, sprint } = req.body;
+    if (!profileId || !listId) {
+      return res.status(400).json({ error: "profileId and listId are required to sync to ClickUp" });
+    }
 
-    const result = await syncSprint(projectId, sprint);
+    const profile = await prisma.profile.findUnique({
+      where: { id: profileId }
+    });
+
+    if (!profile || !profile.clickupToken) {
+      return res.status(403).json({ error: "ClickUp is not connected for this user." });
+    }
+
+    const result = await syncSprint(listId, sprint, profile.clickupToken);
 
     res.json({ success: true, result });
 
@@ -452,35 +528,29 @@ app.post("/api/sync-clickup", async (req, res) => {
 });
 
 /**
- * 8. Fetch project activities
+ * Export Requestly Mock Config
  */
-app.get("/api/projects/:projectId/activities", async (req, res): Promise<any> => {
+app.get("/api/projects/:projectId/requestly-export", async (req: express.Request, res: express.Response) => {
   try {
-    const activities = await prisma.activity.findMany({
-      where: { projectId: req.params.projectId },
+    const projectId = req.params.projectId as string;
+
+    const prdVersion = await prisma.prdVersion.findFirst({
+      where: { projectId: projectId },
+      include: { analysis: true },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(activities);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
-/**
- * 9. Fetch latest PRD info
- */
-app.get("/api/projects/:projectId/latest-prd", async (req, res): Promise<any> => {
-  try {
-    const latestVersion = await prisma.prdVersion.findFirst({
-      where: { projectId: req.params.projectId },
-      orderBy: { versionNumber: 'desc' }
-    });
-
-    if (!latestVersion) {
-      return res.status(404).json({ error: "No PRD version found" });
+    if (!prdVersion || !("analysis" in prdVersion) || !prdVersion.analysis) {
+      return res.status(404).json({ error: "No analysis found for this project." });
     }
 
-    res.json(latestVersion);
+    const config = (prdVersion.analysis as any).requestlyConfig || {};
+
+    // Set headers to trigger download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=requestly-mocks-${projectId}.json`);
+    res.send(JSON.stringify(config, null, 2));
+
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

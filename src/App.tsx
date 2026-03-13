@@ -22,6 +22,7 @@ import CodeGenerator from "./pages/CodeGenerator.tsx";
 import Testing from "./pages/Testing.tsx";
 import Chat from "./pages/Chat.tsx";
 import Automation from "./pages/Automation.tsx";
+import ClickUpCallback from "./pages/ClickUpCallback.tsx";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import Traceability from "./pages/Traceability.tsx";
 import Documentation from "./pages/Documentation.tsx";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/clickup/callback" element={<ClickUpCallback />} />
             <Route path="/docs" element={<Documentation />} />
             <Route path="/pricing" element={<Pricing />} />
             

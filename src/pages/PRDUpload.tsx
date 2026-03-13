@@ -209,6 +209,11 @@ export default function PRDUpload() {
         JSON.stringify(safeData)
       );
 
+      // Cache the project ID for subsequent lookups (like Requestly download)
+      if (result.projectId) {
+        localStorage.setItem("blueprint_project_id", result.projectId);
+      }
+
       toast({
         title: "Analysis Complete",
         description: "Project roadmap generated."
@@ -219,6 +224,18 @@ export default function PRDUpload() {
     } catch (err: any) {
       console.error("Upload error:", err);
       const message = err?.message || "Upload failed";
+      
+      // Trigger Requestly SessionBook export to capture the network trace and video for debugging
+      // @ts-ignore
+      if (typeof window !== 'undefined' && window.RequestlySessionBook) {
+        // @ts-ignore
+        window.RequestlySessionBook.save();
+        toast({
+           title: "Session Recorded for Debugging",
+           description: "A Requestly SessionBook debug report is being generated to help diagnose this pipeline failure.",
+        });
+      }
+
       setError(message);
       toast({
         variant: "destructive",

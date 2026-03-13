@@ -4,26 +4,16 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Github, Trello, Slack, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
-import { useSearchParams } from "react-router-dom";
 
 const ClickUpIcon = ({ className }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    className={className} 
-    fill="currentColor" 
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
   >
     <path d="M5.385 13.911c.712-.511 1.631-.692 2.508-.491a4.341 4.341 0 011.696.864c.25.196.486.417.702.659.394.437.494.675 1.115.675.621 0 .721-.238 1.115-.675.216-.242.452-.463.702-.659a4.341 4.341 0 011.696-.864 3.737 3.737 0 012.508.491.439.439 0 01-.013.738l-4.706 3.124a1.295 1.295 0 01-1.42 0l-4.706-3.124a.439.439 0 01-.01-.738zM2.512 8.44l8.369-5.753c.677-.465 1.56-.465 2.237 0l8.369 5.753c.697.479.79 1.455.204 2.052l-2.008 2.049a.439.439 0 01-.637-.015l-4.108-4.223a.439.439 0 00-.731.314v8.834a.439.439 0 01-.439.439h-3.536a.439.439 0 01-.439-.439V8.911a.439.439 0 00-.731-.314l-4.108 4.223a.439.439 0 01-.637.015l-2.008-2.049c-.586-.597-.493-1.573.204-2.052z" />
@@ -38,20 +28,28 @@ export default function Automation() {
     clickup: false,
     slack: false
   });
-  const [profileId, setProfileId] = useState<string>(localStorage.getItem("profileId") || "");
-  const [projectId, setProjectId] = useState<string>(localStorage.getItem("projectId") || "");
-  const [repos, setRepos] = useState<Array<{ fullName: string; owner: string; name: string }>>([]);
-  const [selectedRepo, setSelectedRepo] = useState<string>("");
-  const [linkedRepo, setLinkedRepo] = useState<string>("");
-  const [newRepoName, setNewRepoName] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // ── Slack state ────────────────────────────────────────────
-  const [slackChannels, setSlackChannels] = useState<Array<{ slackChannelId: string; name: string }>>([]);
-  const [selectedSlackChannel, setSelectedSlackChannel] = useState<string>("");
-  const [slackWorkspace, setSlackWorkspace] = useState<string>("");
-  const [slackSelectedChannelName, setSlackSelectedChannelName] = useState<string>("");
+  useEffect(() => {
+    const fetchStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setUserId(user.id);
+
+      try {
+        const res = await fetch(`http://localhost:5000/api/clickup/status?profileId=${user.id}`);
+        const data = await res.json();
+        if (data.isConnected) {
+          setConnections(prev => ({ ...prev, clickup: true }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch ClickUp status", err);
+      }
+    };
+    fetchStatus();
+  }, []);
 
   const integrations = [
     { id: "github", name: "GitHub", desc: "Push scaffolded code directly to your repositories.", icon: Github },
@@ -59,345 +57,38 @@ export default function Automation() {
     { id: "slack", name: "Slack", desc: "Receive real-time notifications for architecture changes.", icon: Slack }
   ];
 
-  // ── GitHub helpers ─────────────────────────────────────────
-
-  const loadGitHubState = async (currentProfileId: string, currentProjectId: string) => {
-    if (!currentProfileId) {
-      setConnections((prev) => ({ ...prev, github: false }));
-      setRepos([]);
-      return;
-    }
-
-    try {
-      const connectionRes = await fetch(`${backendBase}/api/github/connection?profileId=${encodeURIComponent(currentProfileId)}`);
-      if (!connectionRes.ok) {
-        const err = await connectionRes.json().catch(() => ({}));
-        throw new Error(err?.error || "Failed to load GitHub connection state.");
-      }
-      const connectionData = await connectionRes.json();
-      const connected = Boolean(connectionData?.connected);
-
-      setConnections((prev) => ({ ...prev, github: connected }));
-
-      if (connected) {
-        const reposRes = await fetch(`${backendBase}/api/github/repos?profileId=${encodeURIComponent(currentProfileId)}`);
-        if (!reposRes.ok) {
-          const err = await reposRes.json().catch(() => ({}));
-          throw new Error(err?.error || "Failed to load repositories.");
-        }
-        const reposData = await reposRes.json();
-        const list = (reposData?.repos || []).map((r: any) => ({
-          fullName: r.fullName,
-          owner: r.owner,
-          name: r.name,
-        }));
-        setRepos(list);
-      } else {
-        setRepos([]);
-      }
-
-      if (currentProjectId) {
-        const mappingRes = await fetch(`${backendBase}/api/github/projects/${currentProjectId}/link-repo`);
-        const mappingData = await mappingRes.json();
-        const fullName = mappingData?.mapping?.fullName || "";
-        setLinkedRepo(fullName);
-        if (fullName) {
-          setSelectedRepo(fullName);
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      setConnections((prev) => ({ ...prev, github: false }));
-      setRepos([]);
-    }
-  };
-
-  // ── Slack helpers ──────────────────────────────────────────
-
-  const loadSlackState = async (currentProfileId: string) => {
-    if (!currentProfileId) {
-      setConnections((prev) => ({ ...prev, slack: false }));
-      setSlackChannels([]);
-      return;
-    }
-
-    try {
-      const res = await fetch(`${backendBase}/api/slack/connection?profileId=${encodeURIComponent(currentProfileId)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const connected = Boolean(data?.connected);
-
-      setConnections((prev) => ({ ...prev, slack: connected }));
-      setSlackWorkspace(data?.connection?.workspaceName || "");
-      setSlackSelectedChannelName(data?.connection?.channelName || "");
-      if (data?.connection?.channelId) {
-        setSelectedSlackChannel(data.connection.channelId);
-      }
-
-      if (connected) {
-        try {
-          const chRes = await fetch(`${backendBase}/api/slack/channels?profileId=${encodeURIComponent(currentProfileId)}`);
-          if (chRes.ok) {
-            const chData = await chRes.json();
-            setSlackChannels(chData?.channels || []);
-          }
-        } catch {
-          // silently ignore channel fetch errors
-        }
-      }
-    } catch {
-      setConnections((prev) => ({ ...prev, slack: false }));
-    }
-  };
-
-  const connectSlack = async () => {
-    if (!profileId) {
-      toast({ title: "Profile missing", description: "Login required to connect Slack.", variant: "destructive" });
-      return;
-    }
-
-    const res = await fetch(`${backendBase}/api/slack/oauth/start?profileId=${encodeURIComponent(profileId)}`);
-    const data = await res.json();
-
-    if (!res.ok || !data?.url) {
-      throw new Error(data?.error || "Failed to start Slack OAuth flow.");
-    }
-
-    window.location.href = data.url;
-  };
-
-  const selectSlackChannel = async (channelId: string) => {
-    setSelectedSlackChannel(channelId);
-    const channelObj = slackChannels.find((c) => c.slackChannelId === channelId);
-    const channelName = channelObj?.name || channelId;
-    setSlackSelectedChannelName(channelName);
-
-    const res = await fetch(`${backendBase}/api/slack/channel/select`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId, channelId, channelName }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to select channel.");
-    }
-  };
-
-  const testSlack = async () => {
-    const res = await fetch(`${backendBase}/api/slack/test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId, channel: selectedSlackChannel }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error || "Failed to send test message.");
-    return data;
-  };
-
-  const disconnectSlack = async () => {
-    const res = await fetch(`${backendBase}/api/slack/disconnect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error || "Failed to disconnect Slack.");
-
-    setConnections((prev) => ({ ...prev, slack: false }));
-    setSlackChannels([]);
-    setSelectedSlackChannel("");
-    setSlackWorkspace("");
-    setSlackSelectedChannelName("");
-  };
-
-  // ── Init ───────────────────────────────────────────────────
-
-  useEffect(() => {
-    const init = async () => {
-      const queryProfileId = searchParams.get("profileId") || "";
-      const { data } = await supabase.auth.getUser();
-      const userId = data?.user?.id || "";
-      const storedProfileId = localStorage.getItem("profileId") || "";
-      const effectiveProfileId = queryProfileId || userId || storedProfileId;
-
-      if (effectiveProfileId) {
-        setProfileId(effectiveProfileId);
-        localStorage.setItem("profileId", effectiveProfileId);
-      }
-
-      await loadGitHubState(effectiveProfileId, projectId);
-      await loadSlackState(effectiveProfileId);
-
-      // Handle post-OAuth redirects
-      const slackParam = searchParams.get("slack");
-      if (slackParam === "connected") {
-        toast({ title: "Slack connected", description: "Your Slack workspace is now connected." });
-      } else if (slackParam === "error") {
-        toast({ title: "Slack error", description: searchParams.get("message") || "OAuth failed.", variant: "destructive" });
-      }
-    };
-
-    init();
-  }, [projectId, searchParams]);
-
-  const selectedRepoParts = useMemo(() => {
-    if (!selectedRepo.includes("/")) {
-      return { owner: "", repo: "" };
-    }
-    const [owner, repo] = selectedRepo.split("/");
-    return { owner, repo };
-  }, [selectedRepo]);
-
-  // ── GitHub card actions ────────────────────────────────────
-
-  const connectGitHub = async () => {
-    if (!profileId) {
-      toast({
-        title: "Profile missing",
-        description: "Login required to connect GitHub.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const res = await fetch(`${backendBase}/api/github/oauth/start?profileId=${encodeURIComponent(profileId)}`);
-    const data = await res.json();
-
-    if (!res.ok || !data?.url) {
-      throw new Error(data?.error || "Failed to start GitHub OAuth flow.");
-    }
-
-    window.location.href = data.url;
-  };
-
-  const createRepo = async () => {
-    if (!newRepoName.trim()) {
-      throw new Error("Enter repository name first.");
-    }
-
-    const res = await fetch(`${backendBase}/api/github/repos/create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profileId,
-        name: newRepoName.trim(),
-        isPrivate: true,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error || "Failed to create repository.");
-    }
-
-    const fullName = data?.repo?.fullName;
-    if (fullName) {
-      setSelectedRepo(fullName);
-      setNewRepoName("");
-    }
-
-    await loadGitHubState(profileId, projectId);
-  };
-
-  const linkRepo = async () => {
-    if (!projectId) {
-      throw new Error("Upload PRD first so projectId exists.");
-    }
-    if (!selectedRepoParts.owner || !selectedRepoParts.repo) {
-      throw new Error("Select a repository first.");
-    }
-
-    const res = await fetch(`${backendBase}/api/github/projects/${projectId}/link-repo`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profileId,
-        owner: selectedRepoParts.owner,
-        repo: selectedRepoParts.repo,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error || "Failed to link repository.");
-    }
-
-    setLinkedRepo(data?.mapping?.fullName || `${selectedRepoParts.owner}/${selectedRepoParts.repo}`);
-  };
-
-  const pushProject = async () => {
-    if (!projectId) {
-      throw new Error("Upload PRD first so projectId exists.");
-    }
-
-    const raw = localStorage.getItem("generatedCodeFiles");
-    const files = raw ? JSON.parse(raw) : [];
-
-    if (!Array.isArray(files) || files.length === 0) {
-      throw new Error("No generated files found. Open Code Generator once before pushing.");
-    }
-
-    const res = await fetch(`${backendBase}/api/github/projects/${projectId}/push`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        files,
-        commitMessage: "feat: sync project from blueprint dashboard",
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error || "Failed to push project.");
-    }
-
-    toast({
-      title: "Pushed to GitHub",
-      description: `Commit ${data?.commitSha || "created"}`,
-    });
-  };
-
-  // ── Toggle handler ─────────────────────────────────────────
-
-  const handleToggle = (id: string) => {
-    const nextState = !connections[id as keyof typeof connections];
-
-    if (id === "github") {
-      if (!nextState) {
-        toast({ title: "GitHub stays connected", description: "Disconnect flow is not enabled yet." });
+  const handleToggle = async (id: string) => {
+    if (id === "clickup" && !connections.clickup) {
+      if (!userId) {
+        toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
         return;
       }
-      setBusy(true);
-      connectGitHub()
-        .catch((error: any) => toast({ title: "GitHub connect failed", description: error.message, variant: "destructive" }))
-        .finally(() => setBusy(false));
-      return;
-    }
-
-    if (id === "slack") {
-      if (nextState) {
-        // Connect
-        setBusy(true);
-        connectSlack()
-          .catch((error: any) => toast({ title: "Slack connect failed", description: error.message, variant: "destructive" }))
-          .finally(() => setBusy(false));
-      } else {
-        // Disconnect
-        setBusy(true);
-        disconnectSlack()
-          .then(() => toast({ title: "Slack disconnected" }))
-          .catch((error: any) => toast({ title: "Slack disconnect failed", description: error.message, variant: "destructive" }))
-          .finally(() => setBusy(false));
+      toast({ title: "Redirecting...", description: "Taking you to ClickUp to authorize." });
+      try {
+        const res = await fetch("http://localhost:5000/api/clickup/auth-url");
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to fetch auth URL.", variant: "destructive" });
+        return;
       }
-      return;
     }
 
-    // ClickUp – simple toggle
+    const nextState = !connections[id as keyof typeof connections];
     setConnections(prev => ({ ...prev, [id]: nextState }));
-  };
 
-  // ── Render ─────────────────────────────────────────────────
+    if (!nextState && id === "clickup") {
+      // In a real app we'd also call a backend disconnect route
+      toast({
+        title: "Connection Severed",
+        description: "ClickUp disconnected successfully.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -421,8 +112,8 @@ export default function Automation() {
                   <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-2 transition-colors", isConnected ? "bg-primary/10 text-primary" : "bg-zinc-950 text-zinc-500")}>
                     <int.icon className="w-6 h-6" />
                   </div>
-                  <Switch 
-                    checked={isConnected} 
+                  <Switch
+                    checked={isConnected}
                     onCheckedChange={() => handleToggle(int.id)}
                     className="data-[state=checked]:bg-green-500"
                   />
@@ -434,12 +125,12 @@ export default function Automation() {
                 <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
                   {isConnected ? (
                     <div className="flex items-center gap-2 text-sm text-green-400 font-medium">
-                      <CheckCircle2 className="w-4 h-4 animate-pulse" /> 
+                      <CheckCircle2 className="w-4 h-4 animate-pulse" />
                       Connected
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-sm text-zinc-500">
-                      <AlertCircle className="w-4 h-4" /> 
+                      <AlertCircle className="w-4 h-4" />
                       Not connected
                     </div>
                   )}

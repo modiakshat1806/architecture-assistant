@@ -11,7 +11,7 @@ export async function generateJSONResponse<T>(
   systemInstruction: string,
   userPromptOrFile: any,
   responseSchema: Schema,
-  retries: number = 3 // We will try up to 3 times
+  retries: number = 5 // Increased retries for hackathon demo stability
 ): Promise<T> {
 
   if (!ai) {
@@ -20,7 +20,8 @@ export async function generateJSONResponse<T>(
     ai = new GoogleGenAI({ apiKey });
   }
 
-  const model = "gemini-3-flash-preview";
+  // CRITICAL: gemini-3 does not exist yet. Using gemini-2.5-flash for speed & stability.
+  const model = "gemini-2.5-flash";
 
   let parts = [];
   if (typeof userPromptOrFile === "string") {
@@ -49,15 +50,25 @@ export async function generateJSONResponse<T>(
       return JSON.parse(response.text) as T;
 
     } catch (error: any) {
-      const isRateLimit = error?.status === 429;
-      const isOverloaded = error?.status === 503;
+      // LOG ERROR DETAILS TO TERMINAL
+      const status = error?.status || error?.response?.status;
+      const message = error?.message || "Internal AI Error";
+      const details = error?.response?.data || error?.details || "No extra details";
+
+      console.error(`\n❌ Gemini API Error (Attempt ${attempt}/${retries}):`, {
+        status,
+        message,
+        details
+      });
+
+      const isRateLimit = status === 429;
+      const isOverloaded = status === 503;
 
       if ((isRateLimit || isOverloaded) && attempt < retries) {
-        const delay = attempt * 3000; // Wait 3s, then 6s, then 9s
-        console.warn(`⚠️ Gemini API busy (Attempt ${attempt}/${retries}). Retrying in ${delay / 1000}s...`);
+        const delay = attempt * 5000; // Wait 5s, then 10s, then 15s
+        console.warn(`⚠️ Gemini API busy (${status}). Retrying in ${delay / 1000}s...`);
         await sleep(delay);
       } else {
-        // If it's a different error, or we ran out of retries, throw it
         throw error;
       }
     }

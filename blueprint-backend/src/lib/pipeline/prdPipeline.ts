@@ -1,100 +1,48 @@
 // src/lib/pipeline/prdPipeline.ts
 
-import { detectAmbiguities } from "./ambiguityDetector.js";
-import { generateClarifications } from "./clarificationQuestions.js";
-
-import { extractFeatures } from "./featureExtractor.js";
-import { generateUserStories } from "./storyGenerator.js";
-import { generateTasks } from "./taskGenerator.js";
-import { generateArchitecture } from "./architectureGenerator.js";
 import { buildTraceability } from "./traceabilityGenerator.js";
 import { generateSprints } from "./sprintPlanner.js";
-import { scorePRDHealth } from "./prdHealthScore.js";
-import { generateDevOps } from "./devopsGenerator.js";
-import { generateCode } from "./codeGenerator.js";
-import { generateTests } from "./testGenerator.js";
+import { generateRequestlyConfig } from "./requestlyExporter.js";
+import { runConsolidatedAnalysis } from "./consolidatedAnalysis.js";
+import { runConsolidatedImplementation } from "./consolidatedImplementation.js";
 
 // Helper to slow down requests
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function runPrdPipeline(documentPart: any): Promise<any> {
 
-  console.log("=== STARTING ADVANCED PRD PIPELINE ===");
+  console.log("=== STARTING CONSOLIDATED PRD PIPELINE ===");
+  const projectName = "Generated AI Project";
 
   // ----------------------------------------
-  // 1. PRD Analysis Layer
+  // Batch 1: Analysis & Requirements (1 Request)
   // ----------------------------------------
+  const analysisResult = await runConsolidatedAnalysis(documentPart);
+  const { ambiguities, healthScore, features, stories, clarifications } = analysisResult;
 
-  console.log("-> Detecting Ambiguities...");
-  const ambiguities = await detectAmbiguities(documentPart);
-  await sleep(2000);
-
-  console.log("-> Generating Clarification Questions...");
-  const clarifications = await generateClarifications(ambiguities);
-  await sleep(2000);
-
-  console.log("-> Scoring PRD Health...");
-  const healthScore = await scorePRDHealth(documentPart);
-  await sleep(2000);
+  await sleep(2000); // Breathe for rate limits
 
   // ----------------------------------------
-  // 2. Feature Extraction
+  // Batch 2: Engineering & Execution (1 Request)
   // ----------------------------------------
+  const implementationResult = await runConsolidatedImplementation(features, stories);
+  const { tasks, architecture, devops, codeFiles, tests } = implementationResult;
 
-  console.log("-> Extracting Features...");
-  const features = await extractFeatures(documentPart);
-  await sleep(2000);
-
-  // ----------------------------------------
-  // 3. Engineering Planning
-  // ----------------------------------------
-
-  console.log("-> Generating User Stories...");
-  const stories = await generateUserStories(features);
-  await sleep(2000);
-
-  console.log("-> Generating Tasks...");
-  const tasks = await generateTasks(stories);
-  await sleep(2000);
+  // Convert flat code files to the tree structure the UI expects
+  const codeStructure = (codeFiles && codeFiles.length) ? buildFileTree(codeFiles) : [];
 
   // ----------------------------------------
-  // 4. Deterministic Planning
+  // Deterministic Steps (0 Requests)
   // ----------------------------------------
-
-  console.log("-> Planning Sprints...");
+  console.log("-> Post-Processing Deterministic Data...");
   const sprints = generateSprints(tasks);
-
-  // ----------------------------------------
-  // 5. Architecture + DevOps
-  // ----------------------------------------
-
-  console.log("-> Generating Architecture...");
-  const architecture = await generateArchitecture(features, tasks);
-  await sleep(3000);
-
-  console.log("-> Generating DevOps Strategy...");
-  const devops = await generateDevOps(tasks);
-  await sleep(3000);
-
-  console.log("-> Generating Code Structure...");
-  const codeStructure = await generateCode(tasks);
-  await sleep(3000);
-
-  console.log("-> Generating Test Cases...");
-  const tests = await generateTests(tasks);
-
-  // ----------------------------------------
-  // 6. Traceability Graph
-  // ----------------------------------------
-
-  console.log("-> Building Traceability Graph...");
   const traceability = buildTraceability(features, stories, tasks);
+  const requestlyConfig = generateRequestlyConfig(codeStructure, projectName);
 
-  console.log("=== PIPELINE COMPLETE ===");
+  console.log("=== PIPELINE COMPLETE (2 AI REQUESTS TOTAL) ===");
 
   return {
-    projectName: "Generated AI Project",
-
+    projectName,
     features,
     stories,
     tasks,
@@ -110,6 +58,39 @@ export async function runPrdPipeline(documentPart: any): Promise<any> {
     clarifications,
 
     healthScore,
-    devops
+    devops,
+    
+    requestlyConfig
   };
 }
+
+// Re-using the tree builder from codeGenerator.ts to keep functionality intact
+function buildFileTree(files: any[]): any[] {
+  const root: any[] = [];
+  files.forEach(file => {
+    const parts = file.path.split('/');
+    let currentLevel = root;
+    parts.forEach((part: string, index: number) => {
+      const isFile = index === parts.length - 1;
+      let existingNode = currentLevel.find(n => n.name === part);
+      if (existingNode) {
+        if (!isFile) currentLevel = existingNode.children;
+      } else {
+        const newNode: any = {
+          path: parts.slice(0, index + 1).join('/'),
+          name: part,
+          type: isFile ? 'file' : 'folder'
+        };
+        if (isFile) {
+          newNode.language = file.language;
+          newNode.content = file.content;
+        } else {
+          newNode.children = [];
+        }
+        currentLevel.push(newNode);
+        if (!isFile) currentLevel = newNode.children;
+      }
+    });
+  });
+  return root;
+}

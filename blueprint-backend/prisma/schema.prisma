@@ -9,15 +9,14 @@ datasource db {
 }
 
 model Profile {
-  id        String    @id @db.Uuid
-  email     String    @unique
-  name      String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @db.Uuid
+  email        String    @unique
+  name         String?
+  clickupToken String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   
-  projects  Project[]
-  githubConnection GitHubConnection?
-  slackIntegration SlackIntegration?
+  projects     Project[]
 }
 
 model Project {
@@ -61,6 +60,7 @@ model PipelineAnalysis {
   clarifications Json       @default("[]")
   healthScore    Json       @default("{}")
   devops         Json       @default("{}")
+  requestlyConfig Json      @default("{}")
   
   changeImpact   Json?
 
