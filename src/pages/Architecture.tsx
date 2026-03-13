@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
+import { useToast } from "@/hooks/use-toast";
 import { 
   Server, 
   Database, 
@@ -23,9 +23,12 @@ import {
   useNodesState, 
   useEdgesState, 
   Handle, 
-  Position 
+  Position,
+  ReactFlowProvider,
+  useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { toPng } from 'html-to-image';
 
 // ==========================================
 // 1. CUSTOM NODE DEFINITION
@@ -75,11 +78,12 @@ const initialEdges = [
 ];
 
 // ==========================================
-// 3. MAIN COMPONENT
+// 3. INTERNAL CONTENT COMPONENT
 // ==========================================
-export default function Architecture() {
+function ArchitectureContent() {
   const navigate = useNavigate();
-  const { toast } = useToast(); // <-- INITIALIZE TOAST
+  const { toast } = useToast();
+  const { getNodes } = useReactFlow();
   
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -93,6 +97,47 @@ export default function Architecture() {
     setSelectedNodeData(node.data);
   }, []);
 
+  const handleExport = async () => {
+    const nodes = getNodes();
+    if (nodes.length === 0) return;
+
+    const viewportWrap = document.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewportWrap) return;
+
+    toast({
+      title: "Exporting Diagram",
+      description: "Preparing your architecture graph as a high-res PNG...",
+    });
+
+    try {
+      const dataUrl = await toPng(viewportWrap, {
+        backgroundColor: '#09090b', // zinc-950
+        style: {
+          width: '1200px',
+          height: '800px',
+          transform: 'none',
+        },
+      });
+
+      const link = document.createElement('a');
+      link.download = 'architecture-diagram.png';
+      link.href = dataUrl;
+      link.click();
+      
+      toast({
+        title: "Success",
+        description: "Architecture diagram exported successfully.",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Export Failed",
+        description: "There was an error generating the PNG. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <DashboardLayout>
       {/* Header */}
@@ -102,16 +147,10 @@ export default function Architecture() {
           <p className="text-zinc-400 mt-1">Interactive map of your generated services and databases.</p>
         </div>
         <div className="flex gap-3">
-          {/* UPDATED EXPORT BUTTON */}
           <Button 
             variant="outline" 
             className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
-            onClick={() => {
-              toast({
-                title: "Exporting Diagram",
-                description: "Preparing your architecture graph as a high-res PNG...",
-              });
-            }}
+            onClick={handleExport}
           >
             <Download className="w-4 h-4" /> Export Diagram
           </Button>
@@ -202,5 +241,16 @@ export default function Architecture() {
 
       </div>
     </DashboardLayout>
+  );
+}
+
+// ==========================================
+// 4. EXPORTED COMPONENT (WITH PROVIDER)
+// ==========================================
+export default function Architecture() {
+  return (
+    <ReactFlowProvider>
+      <ArchitectureContent />
+    </ReactFlowProvider>
   );
 }

@@ -18,8 +18,8 @@ export default function Navbar() {
 
   // We add an 'action' property to know whether to scroll down or pop a toast
   const navLinks = [
-    { name: "Features", href: "#features", action: "scroll" },
-    { name: "Solutions", href: "#solutions", action: "scroll" },
+    { name: "Features", href: "/#features", action: "scroll" },
+    { name: "Solutions", href: "/#solutions", action: "scroll" },
     { name: "Documentation", href: "/docs", action: "link" },
     { name: "Pricing", href: "/pricing", action: "link" },
   ];
@@ -31,6 +31,17 @@ export default function Navbar() {
         title: link.name,
         description: `The ${link.name} page will be available in the next release.`
       });
+    } else if (link.action === "scroll") {
+      // If we are already on the home page, we can scroll smoothly
+      if (window.location.pathname === "/") {
+        e.preventDefault();
+        const id = link.href.replace("/#", "");
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+      // If NOT on home page, let the default <a> behavior navigate to "/#features"
     } else if (link.action === "link") {
       e.preventDefault();
       window.location.href = link.href;

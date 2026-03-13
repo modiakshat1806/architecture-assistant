@@ -17,7 +17,7 @@ export default function PipelineAnimation() {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveStep((prev) => (prev + 1) % steps.length);
-    }, 1800);
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 

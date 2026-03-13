@@ -30,7 +30,12 @@ export default function Auth() {
       <div className="w-full max-w-md z-10">
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2 text-white">
-            <Layout className="w-8 h-8 text-primary-500" />
+            <svg width="32" height="32" viewBox="0 0 28 28" fill="none" className="text-primary">
+              <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
+              <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+              <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+              <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
+            </svg>
             <span className="text-2xl font-bold tracking-tight">Blueprint.dev</span>
           </div>
         </div>

@@ -7,12 +7,6 @@ import { BookOpen, MessageCircle, Mail, ExternalLink, Zap, FileText, Code2, Test
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
-const quickLinks = [
-  { title: "Getting Started Guide", description: "Learn the basics of Blueprint.dev", icon: BookOpen, badge: "Popular" },
-  { title: "PRD Upload & Analysis", description: "How to upload and process requirements", icon: FileText, badge: null },
-  { title: "Code Generation", description: "Generate production-ready code from tasks", icon: Code2, badge: "New" },
-  { title: "Testing Framework", description: "Run and manage automated test suites", icon: TestTube, badge: null },
-];
 
 const faqs = [
   {
@@ -70,13 +64,6 @@ const supportChannels = [
 
 export default function HelpSupport() {
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredFaqs = faqs.filter(
-    (faq) =>
-      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const handleAction = (channel: string) => {
     toast({ title: channel, description: `Opening ${channel.toLowerCase()}...` });
@@ -96,56 +83,18 @@ export default function HelpSupport() {
           </p>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-xl mx-auto">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search help articles and FAQs..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-surface border border-border-subtle rounded-xl py-3 pl-11 pr-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-all placeholder:text-text-muted"
-          />
-        </div>
-
-        {/* Quick Links */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {quickLinks.map((link) => (
-            <Card
-              key={link.title}
-              className="bg-surface border-border-subtle hover:border-primary/30 transition-colors cursor-pointer group"
-              onClick={() => toast({ title: link.title, description: "Opening article..." })}
-            >
-              <CardContent className="p-5 flex items-start gap-4">
-                <div className="w-9 h-9 rounded-lg bg-elevated flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
-                  <link.icon className="w-4.5 h-4.5 text-text-secondary group-hover:text-primary transition-colors" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">{link.title}</h3>
-                    {link.badge && (
-                      <Badge className="bg-primary/15 text-primary border-0 text-[10px] px-1.5">{link.badge}</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-muted mt-0.5">{link.description}</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors shrink-0 mt-0.5" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
 
         {/* FAQ */}
-        <Card className="bg-surface border-border-subtle">
+        <Card className="bg-surface border-border-subtle shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg text-foreground">Frequently Asked Questions</CardTitle>
+            <CardTitle className="text-lg text-foreground font-satoshi">Frequently Asked Questions</CardTitle>
             <CardDescription className="text-text-muted">
-              {searchQuery ? `${filteredFaqs.length} results for "${searchQuery}"` : "Common questions about Blueprint.dev"}
+              Common questions about Blueprint.dev features and workflows.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
-              {filteredFaqs.map((faq, i) => (
+              {faqs.map((faq, i) => (
                 <AccordionItem key={i} value={`faq-${i}`} className="border-border-subtle">
                   <AccordionTrigger className="text-sm font-medium text-foreground hover:text-primary hover:no-underline py-4">
                     {faq.question}
@@ -156,9 +105,6 @@ export default function HelpSupport() {
                 </AccordionItem>
               ))}
             </Accordion>
-            {filteredFaqs.length === 0 && (
-              <p className="text-sm text-text-muted text-center py-8">No results found. Try a different search term.</p>
-            )}
           </CardContent>
         </Card>
 

@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
+const VSCodeIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    className={className} 
+    fill="currentColor" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-5.58-4.312a1.495 1.495 0 0 0-1.819.021L.348 5.629a1.494 1.494 0 0 0-.14 2.112l4.636 5.25L.208 18.24a1.494 1.494 0 0 0 .14 2.112l.618.503a1.495 1.495 0 0 0 1.819.021l5.58-4.312 9.46 8.63a1.494 1.494 0 0 0 1.705.29l4.94-2.377A1.5 1.5 0 0 0 24 21.785V5.214a1.5 1.5 0 0 0-.85-1.352zM18 18.962l-4.59-4.183L18 12V18.962zM4.215 15.895l-2.057-2.33 2.057-2.33 1.151 1.151-1.151 1.151z" />
+  </svg>
+);
 import { 
   Folder, 
   FolderOpen, 
@@ -18,6 +28,7 @@ import {
   Code2
 } from "lucide-react";
 import { codeToHtml } from "shiki";
+import JSZip from "jszip";
 
 // ==========================================
 // 1. TYPES & INTERFACES
@@ -58,7 +69,92 @@ const mockFileTree: CodeFile[] = [
 ];
 
 export default function CodeGenerator() {
-  const { toast } = useToast(); // <-- INITIALIZE TOAST
+  const { toast } = useToast();
+
+  const handleOpenVSCode = async () => {
+    try {
+      toast({
+        title: "Initializing Workspace",
+        description: "Connecting to local bridge server...",
+      });
+
+      // We send the entire file tree to the bridge server.
+      // The bridge server will handle folder selection (native), writing, and opening VS Code.
+      const response = await fetch('http://localhost:3001/scaffold-and-open', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          files: fileTree
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Bridge server not responding' }));
+        throw new Error(data.error || 'Failed to communicate with bridge server');
+      }
+
+      const data = await response.json();
+      toast({
+        title: "Success",
+        description: `Project scaffolded to ${data.path} and opened in VS Code!`,
+      });
+
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "VS Code Integration Failed",
+        description: error.message || "Ensure the bridge server is running (npm run bridge).",
+        variant: "destructive",
+      });
+    }
+  };
+
+
+  const handleDownloadZip = async () => {
+    const zip = new JSZip();
+
+    const addFilesToZip = (files: CodeFile[], currentZip: JSZip) => {
+      files.forEach((file) => {
+        if (file.type === "folder" && file.children) {
+          const folder = currentZip.folder(file.name);
+          if (folder) addFilesToZip(file.children, folder);
+        } else if (file.type === "file") {
+          currentZip.file(file.name, file.content || "");
+        }
+      });
+    };
+
+    toast({
+      title: "Packaging Repository",
+      description: "Compressing generated microservices into a .zip file...",
+    });
+
+    try {
+      addFilesToZip(fileTree, zip);
+      const content = await zip.generateAsync({ type: "blob" });
+      
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(content);
+      link.download = "generated-project.zip";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Success",
+        description: "Source code repository downloaded successfully.",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Download Failed",
+        description: "There was an error generating the ZIP file.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // ==========================================
   // 3. STATE MANAGEMENT
@@ -200,29 +296,19 @@ export default function CodeGenerator() {
           <p className="text-zinc-400 mt-1">Review and download the generated boilerplate for your services.</p>
         </div>
         <div className="flex gap-3">
-          {/* UPDATED STACKBLITZ BUTTON */}
+          {/* UPDATED TO OPEN IN VSCODE */}
           <Button 
             variant="outline" 
             className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
-            onClick={() => {
-              toast({
-                title: "Connecting to StackBlitz...",
-                description: "Provisioning a live cloud environment for your repository.",
-              });
-            }}
+            onClick={handleOpenVSCode}
           >
-            <Terminal className="w-4 h-4" /> Open in StackBlitz
+            <VSCodeIcon className="w-4 h-4" /> Open in VS Code
           </Button>
 
           {/* UPDATED ZIP DOWNLOAD BUTTON */}
           <Button 
             className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
-            onClick={() => {
-              toast({
-                title: "Packaging Repository",
-                description: "Compressing generated microservices into a .zip file...",
-              });
-            }}
+            onClick={handleDownloadZip}
           >
             <Download className="w-4 h-4" /> Download .ZIP
           </Button>

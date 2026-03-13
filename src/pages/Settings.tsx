@@ -53,7 +53,7 @@ const settingsSections = [
 
 const planDetails = {
   name: "Pro Plan",
-  price: "$49/mo",
+  price: "$29/mo",
   features: ["Unlimited projects", "AI-powered analysis", "Priority support", "Custom integrations"],
 };
 

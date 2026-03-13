@@ -30,11 +30,18 @@ export default function ProblemSection() {
               transition={{ delay: i * 0.08 }}
               className="flex items-baseline gap-4 group"
             >
-              <span className="text-label-sm text-text-muted font-mono w-16 flex-shrink-0">
+              <span className="text-label-sm text-text-muted font-mono w-20 flex-shrink-0 text-base">
                 {item.week}
               </span>
-              <span className="text-body text-muted-foreground line-through decoration-accent-red/50">
+              <span className="relative text-lg text-muted-foreground">
                 {item.text}
+                <motion.div
+                  initial={{ width: 0 }}
+                  whileInView={{ width: "100%" }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 + 0.4, duration: 0.8, ease: "easeInOut" }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 h-[2px] bg-accent-red"
+                />
               </span>
             </motion.div>
           ))}
@@ -59,7 +66,7 @@ export default function ProblemSection() {
           </p>
           <p className="mt-4 text-lg text-muted-foreground leading-relaxed max-w-md">
             Blueprint reads your PRD in seconds. Finds every gap, every
-            ambiguity, every missing edge case — and turns it into a
+            ambiguity, every missing edge case and turns it into a
             structured execution plan your team can ship from day one.
           </p>
         </motion.div>

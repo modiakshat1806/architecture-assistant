@@ -1,5 +1,6 @@
 // src/pages/Traceability.tsx
 import { useCallback } from "react";
+import { jsPDF } from "jspdf";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,6 +114,86 @@ export default function Traceability() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
+  const handleExport = () => {
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(22);
+    doc.text("Compliance & Traceability Matrix", 20, 20);
+    
+    // Meta info
+    doc.setFontSize(12);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
+    doc.text("Project: Food Delivery Platform (Demo)", 20, 37);
+    
+    // Table Headers
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Requirement ID", 20, 55);
+    doc.text("Microservice", 80, 55);
+    doc.text("Engineering Task", 140, 55);
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, 58, 190, 58);
+    
+    // Data Extraction and Rendering
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    
+    let y = 65;
+    const requirements = initialNodes.filter(n => n.data.type === 'requirement');
+    
+    requirements.forEach((req) => {
+      // Find services connected to this requirement
+      const serviceEdges = initialEdges.filter(e => e.source === req.id);
+      
+      serviceEdges.forEach((sEdge) => {
+        const service = initialNodes.find(n => n.id === sEdge.target);
+        if (!service) return;
+        
+        // Find tasks connected to this service
+        const taskEdges = initialEdges.filter(e => e.source === service.id);
+        
+        taskEdges.forEach((tEdge) => {
+          const task = initialNodes.find(n => n.id === tEdge.target);
+          if (!task) return;
+          
+          doc.text(req.data.badge, 20, y);
+          doc.text(service.data.label, 80, y);
+          doc.text(task.data.badge, 140, y);
+          
+          y += 7;
+          
+          // Page break
+          if (y > 280) {
+            doc.addPage();
+            y = 20;
+          }
+        });
+      });
+    });
+    
+    // Summary Section
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
+    
+    y += 10;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Traceability Summary", 20, y);
+    y += 10;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Requirements Tracked: ${requirements.length}`, 25, y);
+    doc.text(`Total Engineering Tasks Linked: ${initialNodes.filter(n => n.data.type === 'task').length}`, 25, y + 5);
+    doc.text("Status: 100% Compliant", 25, y + 10);
+    
+    doc.save("Compliance_Traceability_Report.pdf");
+    toast({ title: "Success", description: "Traceability matrix exported as PDF." });
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -127,12 +208,7 @@ export default function Traceability() {
           <Button 
             variant="outline" 
             className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
-            onClick={() => {
-              toast({
-                title: "Exporting Report",
-                description: "Generating compliance and traceability PDF...",
-              });
-            }}
+            onClick={handleExport}
           >
             <Download className="w-4 h-4" /> Export Report
           </Button>
