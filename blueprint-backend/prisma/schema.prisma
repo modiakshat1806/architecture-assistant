@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Profile {
@@ -58,6 +59,7 @@ model PipelineAnalysis {
   clarifications Json       @default("[]")
   healthScore    Json       @default("{}")
   devops         Json       @default("{}")
+  requestlyConfig Json      @default("{}")
   
   changeImpact   Json?
 

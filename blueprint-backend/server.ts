@@ -1,4 +1,4 @@
-// server.ts
+// server.ts - Reloaded for optimization
 
 import express from "express";
 import cors from "cors";
@@ -13,6 +13,20 @@ dotenv.config({ debug: true });
 
 const app = express();
 const prisma = new PrismaClient();
+
+// ==========================================
+// GLOBAL ERROR HANDLERS (DEBUGGING)
+// ==========================================
+process.on('uncaughtException', (err) => {
+  console.error('\n🔥 CRITICAL: UNCAUGHT EXCEPTION');
+  console.error(err.stack || err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('\n⚠️ CRITICAL: UNHANDLED REJECTION');
+  console.error('Reason:', reason);
+});
+// ==========================================
 
 app.use(cors());
 app.use(express.json());
@@ -93,6 +107,7 @@ app.post('/api/prd/upload', upload.single('prd'), async (req, res): Promise<any>
                 traceability: pipelineResult.traceability || {},
                 healthScore: pipelineResult.healthScore || {},
                 devops: pipelineResult.devops || {},
+                requestlyConfig: pipelineResult.requestlyConfig || {},
               },
             },
           },
@@ -116,8 +131,28 @@ app.post('/api/prd/upload', upload.single('prd'), async (req, res): Promise<any>
     });
 
   } catch (error: any) {
-    console.error("\n❌ PIPELINE ERROR:", error);
+    console.error("\n❌ PIPELINE ERROR (FULL STACK):");
+    console.error(error.stack || error);
     return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 1.5. Fetch Requestly Mock Config
+ */
+app.get("/api/projects/:projectId/requestly-export", async (req, res) => {
+  try {
+    const analysis = await prisma.pipelineAnalysis.findFirst({
+      where: { prdVersion: { projectId: req.params.projectId } },
+    });
+
+    if (!analysis || !analysis.requestlyConfig) {
+      return res.status(404).json({ error: "No Requestly config found for this project." });
+    }
+
+    res.json(analysis.requestlyConfig);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -401,6 +436,35 @@ app.post("/api/sync-clickup", async (req, res) => {
     const result = await syncSprint(listId, sprint, profile.clickupToken);
 
     res.json({ success: true, result });
+
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Export Requestly Mock Config
+ */
+app.get("/api/projects/:projectId/requestly-export", async (req: express.Request, res: express.Response) => {
+  try {
+    const projectId = req.params.projectId as string;
+
+    const prdVersion = await prisma.prdVersion.findFirst({
+      where: { projectId: projectId },
+      include: { analysis: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!prdVersion || !("analysis" in prdVersion) || !prdVersion.analysis) {
+      return res.status(404).json({ error: "No analysis found for this project." });
+    }
+
+    const config = (prdVersion.analysis as any).requestlyConfig || {};
+    
+    // Set headers to trigger download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=requestly-mocks-${projectId}.json`);
+    res.send(JSON.stringify(config, null, 2));
 
   } catch (err: any) {
     res.status(500).json({ error: err.message });
