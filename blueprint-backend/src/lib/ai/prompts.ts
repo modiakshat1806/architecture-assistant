@@ -10,7 +10,7 @@ export const SYSTEM_PROMPTS = {
   ARCHITECTURE_GENERATOR: `You are a Software Architect. Based on the provided features and tasks, design a backend system architecture. Return the architecture strictly as a JSON object containing an array of 'nodes' and 'edges'.`,
   
   // NEW PROMPTS ADDED HERE:
-  CODE_GENERATOR: `You are a Backend Engineer. Output the required folder/file structure based on the tasks.`,
+   CODE_GENERATOR: `You are a Lead Software Engineer. Based on the provided engineering tasks, generate the essential project structure. Provide the actual boilerplate source code content for the core files.`,
   
   TEST_GENERATOR: `You are an SDET. Generate descriptions for unit, API, edge, and negative tests for the given tasks.`,
   

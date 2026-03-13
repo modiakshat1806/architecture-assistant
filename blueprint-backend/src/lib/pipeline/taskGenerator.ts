@@ -9,18 +9,23 @@ const taskSchema: Schema = {
   properties: {
     tasks: {
       type: Type.ARRAY,
-      description: "Generate exactly 2 to 4 comprehensive engineering tasks per user story. Group granular work together (e.g., 'Implement Auth API and DB Schema' instead of separate micro-tasks). Do not generate more than 4 tasks per story under any circumstances.",
+      description: "You are a Lead Full-Stack Architect. Break the provided user stories into comprehensive technical tasks covering frontend, backend, database, and infrastructure.",
       items: {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
           storyId: { type: Type.STRING },
+          // ADDED: Link the task back to the parent feature so the UI can count them!
+          featureId: { type: Type.STRING, description: "The ID of the feature this task ultimately belongs to." },
           title: { type: Type.STRING, description: "A broad, comprehensive engineering task" },
           description: { type: Type.STRING },
-          type: { type: Type.STRING, description: "Frontend, Backend, Database, or Fullstack" },
+          // UPDATED: Give the AI better instructions for type
+          type: { type: Type.STRING, description: "Must be one of: Frontend, Backend, Infrastructure, UI/UX, or Database" },
+          // ADDED: Tell the AI to generate a priority!
+          priority: { type: Type.STRING, description: "Must be one of: Critical, High, Medium, Low" },
           complexity: { type: Type.INTEGER, description: "Story points (1, 2, 3, 5, 8)" }
         },
-        required: ["id", "storyId", "title", "description", "type", "complexity"]
+        required: ["id", "storyId", "featureId", "title", "description", "type", "priority", "complexity"]
       }
     }
   },

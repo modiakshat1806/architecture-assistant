@@ -13,22 +13,22 @@ export async function generateJSONResponse<T>(
   responseSchema: Schema,
   retries: number = 3 // We will try up to 3 times
 ): Promise<T> {
-  
+
   if (!ai) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("GEMINI_API_KEY missing from .env");
     ai = new GoogleGenAI({ apiKey });
   }
 
-  const model = "gemini-2-flash"; 
+  const model = "gemini-2.0-flash"; 
 
   let parts = [];
   if (typeof userPromptOrFile === "string") {
     parts = [{ text: userPromptOrFile }];
   } else if (Array.isArray(userPromptOrFile)) {
-    parts = userPromptOrFile; 
+    parts = userPromptOrFile;
   } else {
-    parts = [userPromptOrFile]; 
+    parts = [userPromptOrFile];
   }
 
   // Retry Loop
@@ -41,7 +41,7 @@ export async function generateJSONResponse<T>(
           systemInstruction,
           responseMimeType: "application/json",
           responseSchema: responseSchema,
-          temperature: 0.1, 
+          temperature: 0.1,
         },
       });
 
@@ -54,7 +54,7 @@ export async function generateJSONResponse<T>(
 
       if ((isRateLimit || isOverloaded) && attempt < retries) {
         const delay = attempt * 3000; // Wait 3s, then 6s, then 9s
-        console.warn(`⚠️ Gemini API busy (Attempt ${attempt}/${retries}). Retrying in ${delay/1000}s...`);
+        console.warn(`⚠️ Gemini API busy (Attempt ${attempt}/${retries}). Retrying in ${delay / 1000}s...`);
         await sleep(delay);
       } else {
         // If it's a different error, or we ran out of retries, throw it

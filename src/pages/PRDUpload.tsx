@@ -129,9 +129,7 @@ export default function PRDUpload() {
   PROCESS PRD
   ==========================
   */
-
   const handleProcess = async () => {
-
     if (!file) return;
 
     setIsUploading(true);
@@ -140,7 +138,6 @@ export default function PRDUpload() {
     localStorage.removeItem("blueprint_project_data");
 
     try {
-
       const { data } = await supabase.auth.getUser();
       const user = data.user;
 
@@ -153,6 +150,8 @@ export default function PRDUpload() {
       formData.append("prd", file);
       formData.append("profileId", user.id);
       formData.append("projectName", projectName);
+      // ---> ADDED LINE HERE <---
+      formData.append("email", user.email || "");
 
       const response = await fetch(
         "http://localhost:5000/api/prd/upload",
@@ -171,7 +170,6 @@ export default function PRDUpload() {
       const rawData = result?.data ?? {};
 
       const safeData = {
-
         projectName:
           projectName !== "Untitled Project"
             ? projectName
@@ -207,23 +205,16 @@ export default function PRDUpload() {
       navigate("/dashboard/analysis");
 
     } catch (err: any) {
-
       console.error("Upload error:", err);
-
       const message = err?.message || "Upload failed";
-
       setError(message);
-
       toast({
         variant: "destructive",
         title: "Upload Failed",
         description: message
       });
-
     } finally {
-
       setIsUploading(false);
-
     }
   };
 
