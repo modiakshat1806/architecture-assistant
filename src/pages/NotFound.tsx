@@ -16,7 +16,12 @@ const NotFound = () => {
       <div className="text-center flex flex-col items-center max-w-md px-6">
         
         <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-6">
-          <Layout className="w-8 h-8" />
+          <svg width="32" height="32" viewBox="0 0 28 28" fill="none" className="text-primary">
+            <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
+            <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
+          </svg>
         </div>
         
         <h1 className="mb-2 text-5xl font-bold text-white tracking-tight">404</h1>

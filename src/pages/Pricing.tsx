@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, ArrowRight, Zap, Building2, Rocket, HelpCircle } from "lucide-react";
 import Navbar from "@/components/landing/Navbar";
@@ -83,6 +84,8 @@ const faqs = [
 ];
 
 export default function Pricing() {
+  const [selectedPlan, setSelectedPlan] = useState("Pro");
+
   return (
     <div className="min-h-screen bg-canvas text-foreground font-satoshi">
       <Navbar />
@@ -109,9 +112,10 @@ export default function Pricing() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative bg-surface border rounded-2xl p-8 flex flex-col transition-all ${
-                plan.popular
-                  ? "border-primary/50 shadow-[0_0_40px_-12px_hsl(25_95%_53%/0.3)]"
+              onClick={() => setSelectedPlan(plan.name)}
+              className={`relative bg-surface border rounded-2xl p-8 flex flex-col transition-all cursor-pointer ${
+                selectedPlan === plan.name
+                  ? "border-primary shadow-[0_0_40px_-12px_hsl(25_95%_53%/0.4)] ring-1 ring-primary"
                   : "border-border-subtle hover:border-border-emphasis"
               }`}
             >
@@ -122,8 +126,8 @@ export default function Pricing() {
               )}
 
               <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${plan.popular ? "bg-primary/15" : "bg-overlay"}`}>
-                  <plan.icon className={`w-5 h-5 ${plan.popular ? "text-primary" : "text-text-secondary"}`} />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedPlan === plan.name ? "bg-primary/15" : "bg-overlay"}`}>
+                  <plan.icon className={`w-5 h-5 ${selectedPlan === plan.name ? "text-primary" : "text-text-secondary"}`} />
                 </div>
                 <h2 className="text-xl font-bold">{plan.name}</h2>
               </div>
@@ -137,10 +141,10 @@ export default function Pricing() {
 
               <p className="text-text-secondary text-sm mb-6">{plan.description}</p>
 
-              <Link to="/auth" className="block mb-6">
+              <Link to="/auth" className="block mb-6" onClick={(e) => e.stopPropagation()}>
                 <button
                   className={`w-full py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-                    plan.popular
+                    selectedPlan === plan.name
                       ? "bg-primary text-white hover:brightness-110 glow-orange"
                       : "bg-overlay border border-border-subtle text-foreground hover:bg-elevated"
                   }`}
@@ -153,7 +157,7 @@ export default function Pricing() {
               <div className="border-t border-border-subtle pt-6 space-y-3 flex-1">
                 {plan.features.map((feature) => (
                   <div key={feature} className="flex items-start gap-3">
-                    <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${plan.popular ? "text-primary" : "text-accent-green"}`} />
+                    <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${selectedPlan === plan.name ? "text-primary" : "text-accent-green"}`} />
                     <span className="text-sm text-text-secondary">{feature}</span>
                   </div>
                 ))}

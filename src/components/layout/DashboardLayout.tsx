@@ -18,7 +18,10 @@ import {
   Settings,
   HelpCircle,
   Search,
-  ChevronDown
+  ChevronDown,
+  Zap,
+  LayoutDashboard,
+  MessageSquareMore
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,20 +31,23 @@ import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { name: "Projects", path: "/dashboard", icon: FolderGit2 },
+  { name: "Overview", path: "/dashboard/overview", icon: LayoutDashboard },
   { name: "PRD Analysis", path: "/dashboard/analysis", icon: FileText },
+  { name: "Chat & Clarify", path: "/dashboard/chat", icon: MessageSquareMore },
   { name: "Tasks", path: "/dashboard/tasks", icon: ListTodo },
   { name: "Sprint Planner", path: "/dashboard/sprints", icon: CalendarDays },
   { name: "Architecture", path: "/dashboard/architecture", icon: Network },
   { name: "Traceability", path: "/dashboard/traceability", icon: GitMerge },
   { name: "Code Generator", path: "/dashboard/code", icon: Code2 },
   { name: "Testing", path: "/dashboard/testing", icon: TestTube },
-  { name: "Chat & Clarify", path: "/dashboard/chat", icon: FileText },
+  { name: "Automation", path: "/dashboard/automation", icon: Zap },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [hasNotifications, setHasNotifications] = useState(false);
   const { toast } = useToast();
 
   const getPageName = () => {
@@ -65,7 +71,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Mobile Header (Only visible on small screens) */}
       <div className="md:hidden flex items-center justify-between p-4 border-b border-border-subtle bg-bg-surface text-foreground absolute top-0 left-0 right-0 z-30">
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Layout className="w-6 h-6 text-primary" />
+          <svg width="24" height="24" viewBox="0 0 28 28" fill="none" className="text-primary">
+            <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
+            <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
+          </svg>
           <span className="font-bold">Blueprint.dev</span>
         </Link>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -81,7 +92,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       `}>
         {/* Desktop Logo */}
         <Link to="/" className="hidden md:flex items-center gap-2 p-6 border-b border-border-subtle text-foreground hover:bg-overlay transition-colors">
-          <Layout className="w-6 h-6 text-primary" />
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="text-primary">
+            <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
+            <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
+          </svg>
           <span className="text-xl font-bold tracking-tight">Blueprint.dev</span>
         </Link>
 
@@ -153,11 +169,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               variant="ghost" 
               size="icon" 
               className="relative text-text-secondary hover:text-foreground hover:bg-overlay"
-              onClick={() => toast({ title: "Notifications", description: "You're all caught up! No new alerts." })}
+              onClick={() => {
+                setHasNotifications(false);
+                toast({ title: "Notifications", description: "You're all caught up! No new alerts." });
+              }}
             >
               <Bell className="w-5 h-5" />
               {/* Notification dot indicator */}
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
+              {hasNotifications && (
+                <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
+              )}
             </Button>
             
             <DropdownMenu>
@@ -180,7 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <DropdownMenuSeparator className="bg-border-subtle" />
                 <DropdownMenuItem 
                   className="cursor-pointer hover:bg-overlay focus:bg-overlay focus:text-foreground"
-                  onClick={() => toast({ title: "Account Settings", description: "Opening user profile settings..." })}
+                  onClick={() => navigate("/dashboard/settings")}
                 >
                   <User className="mr-2 h-4 w-4 text-text-muted" />
                   <span>Profile</span>

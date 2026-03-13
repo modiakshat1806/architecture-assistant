@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useToast } from "@/hooks/use-toast";
-import { ListTodo, Zap, Network, ArrowRight, CheckCircle2, AlertCircle, ShieldCheck, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // <-- 1. ADDED IMPORT
+import { FileText, ListTodo, Zap, Clock, Network, ArrowRight, CheckCircle2 } from "lucide-react";
 
 interface ParsedData {
   projectName: string;
@@ -16,76 +18,47 @@ interface ParsedData {
   healthScore: { score: number; issues: string[] };
 }
 
+const ambiguities = [
+  { id: "amb-1", feature: "Authentication", text: "OAuth redirect URLs for staging env not defined.", severity: "Medium" },
+  { id: "amb-2", feature: "Payments", text: "Currency support (multi-currency vs single) is unclear.", severity: "High" }
+];
+
+const mockData: ParsedData = {
+  projectName: "V2 Platform Refactor",
+  features: ["Multi-tenant Auth", "Real-time Dashboards", "Event Sourcing"],
+  stories: [],
+  tasks: [],
+  healthScore: { score: 92, issues: [] }
+};
+
+const mockFeatures = [
+  { id: "feat-1", title: "Distributed Authentication", description: "Migrate JWT logic to a dedicated microservice with Redis session management.", complexity: "High", tasks: 8 },
+  { id: "feat-2", title: "Real-time Event Bridge", description: "Implement WebSocket gateway for live data broadcasting to client widgets.", complexity: "Medium", tasks: 12 },
+  { id: "feat-3", title: "Multi-tenant Data Isolation", description: "Row-level security policies for core PostgreSQL databases.", complexity: "High", tasks: 5 },
+];
+
 export default function Analysis() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [data, setData] = useState<ParsedData | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [data, setData] = useState<ParsedData>(mockData);
+  const [extractedFeatures, setExtractedFeatures] = useState<any[]>(mockFeatures);
 
   useEffect(() => {
-  const rawSavedData = localStorage.getItem("blueprint_project_data");
-  
-  if (rawSavedData) {
-    try {
-      const parsed = JSON.parse(rawSavedData);
-      const root = parsed.data || parsed;
-
-      // 1. Stories Recovery (Keep this, it's working!)
-      let finalStories = root.stories || root.userStories || [];
-      if (finalStories.length === 0 && root.features) {
-        finalStories = root.features.map((f: string, i: number) => ({
-          id: `US-${i + 1}`,
-          story: f,
-          acceptanceCriteria: ["Technical requirement must be verified"]
-        }));
-      }
-
-      // 2. Health Score - Let's be less restrictive. 
-      // Even if the score is 0, we want to show it.
-      const rawHealth = root.healthScore || root.health_score || { score: 0, issues: ["No issues identified"] };
-
-      const validatedData: ParsedData = {
-        projectName: root.projectName || root.project_name || "Project Analysis",
-        features: root.features || [],
-        stories: finalStories,
-        tasks: root.tasks || root.backlog || [],
-        healthScore: {
-          // Explicitly check for 'undefined' rather than 'falsy' (since 0 is falsy)
-          score: rawHealth.score !== undefined ? rawHealth.score : 0,
-          issues: Array.isArray(rawHealth.issues) && rawHealth.issues.length > 0 
-            ? rawHealth.issues 
-            : ["Analysis complete"]
+    const rawData = localStorage.getItem("blueprint_project_data");
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        if (parsed.analysis) {
+          setData(parsed.analysis);
         }
-      };
-
-      console.log("RE-VERIFIED DATA:", validatedData);
-      setData(validatedData);
-    } catch (error) {
-      console.error("Mapping Error:", error);
+        if (parsed.features) {
+          setExtractedFeatures(parsed.features);
+        }
+      } catch (e) {
+        console.error("Error parsing blueprint data", e);
+      }
     }
-  }
-  setIsInitialized(true);
-  }, []);
-
-  if (!isInitialized) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh]"><Loader2 className="animate-spin text-primary" /></div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!data) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-          <AlertCircle className="w-12 h-12 text-zinc-600 mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">No Analysis Data</h2>
-          <Button onClick={() => navigate("/dashboard/upload")} className="bg-primary text-white">Go to Upload</Button>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  }, []); // <-- 2. INIT TOAST
 
   return (
     <DashboardLayout>
@@ -95,59 +68,70 @@ export default function Analysis() {
           <p className="text-zinc-400 mt-1">Technical Roadmap</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white">Export</Button>
-          <Button onClick={() => navigate("/dashboard/tasks")} className="bg-primary text-white gap-2">
-            View Tasks <ArrowRight className="w-4 h-4" />
+          {/* 3. WIRED UP DEAD BUTTON */}
+          <Button
+            variant="outline"
+            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800"
+            onClick={() => toast({ title: "Exporting Report", description: "Generating PDF analysis report..." })}
+          >
+            Export Report
+          </Button>
+          <Button onClick={() => navigate("/dashboard/architecture")} className="bg-primary hover:brightness-110 text-white gap-2">
+            View Architecture <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
+      {/* 3-Panel Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)] min-h-[600px]">
-        
-        {/* Panel 1: Health */}
-        <Card className="lg:col-span-3 bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
+        {/* Panel 1: Original Source (col-span-3) */}
+        <Card className="lg:col-span-3 bg-zinc-900 border-zinc-800 hidden lg:flex flex-col overflow-hidden">
           <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
             <CardTitle className="text-white text-sm flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-green-400" /> Health
+              <FileText className="w-4 h-4 text-zinc-400" />
+              Source Document
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4">
-            <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800 text-center mb-4">
-              <p className="text-4xl font-black text-green-500">{data.healthScore.score}%</p>
-            </div>
-            <ul className="space-y-2 text-sm text-zinc-400">
-              {data.healthScore.issues.map((issue, i) => (
-                <li key={i} className="flex gap-2"><span className="text-amber-500">•</span>{issue}</li>
-              ))}
-            </ul>
+          <CardContent className="flex-1 overflow-y-auto p-4 text-sm text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap">
+            {`# Project: V2 Platform Refactor\n\n## 1. Overview\nThe goal of this project is to migrate the legacy monolithic authentication system to a distributed microservice... \n\n## 2. Core Requirements\n- Must support multi-tenant data isolation.\n- JWT tokens with 15-minute expiration.\n- Real-time event broadcasting for dashboard widgets.\n\n## 3. Non-Functional\n- 99.9% uptime SLA.\n- Response time < 200ms for core API routes.`}
           </CardContent>
         </Card>
 
-        {/* Panel 2: Stories */}
+        {/* Panel 2: Extracted Features (col-span-6) */}
         <Card className="lg:col-span-6 bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
           <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50">
             <CardTitle className="text-white text-sm flex items-center justify-between">
-              <div className="flex items-center gap-2"><ListTodo className="w-4 h-4 text-primary" /> Stories</div>
-              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{data.stories.length}</span>
+              <div className="flex items-center gap-2">
+                <ListTodo className="w-4 h-4 text-primary-500" />
+                Extracted Features
+              </div>
+              <span className="bg-primary/10 text-primary-400 px-2 py-0.5 rounded text-xs font-medium">
+                {extractedFeatures.length} Found
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto p-4">
             <Accordion type="single" collapsible className="w-full">
-              {data.stories.map((item, index) => (
-                <AccordionItem key={index} value={`item-${index}`} className="border-zinc-800">
-                  <AccordionTrigger className="text-white text-sm hover:no-underline py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded bg-zinc-800 flex items-center justify-center text-[10px]">{item.id}</span>
-                      <span className="text-left">{item.story}</span>
+              {extractedFeatures.map((feature) => (
+                <AccordionItem key={feature.id} value={feature.id} className="border-zinc-800">
+                  <AccordionTrigger className="text-white hover:text-primary-400 hover:no-underline">
+                    <div className="flex items-center gap-3 text-left">
+                      <CheckCircle2 className="w-4 h-4 text-green-500 hidden sm:block" />
+                      <span>{feature.title}</span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="text-zinc-400 bg-zinc-950/30 p-4 rounded-md">
-                    <p className="text-[10px] font-bold uppercase mb-2">Acceptance Criteria</p>
-                    <ul className="space-y-1">
-                      {item.acceptanceCriteria.map((ac, i) => (
-                        <li key={i} className="text-xs flex gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" />{ac}</li>
-                      ))}
-                    </ul>
+                  <AccordionContent className="text-zinc-400">
+                    <p className="mb-4">{feature.description}</p>
+                    <div className="flex gap-4">
+                      <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        Complexity: <span className="text-white">{feature.complexity}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                        <ListTodo className="w-3 h-3 text-primary-500" />
+                        <span className="text-white">{feature.tasks}</span> Tasks Generated
+                      </div>
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -155,16 +139,53 @@ export default function Analysis() {
           </CardContent>
         </Card>
 
-        {/* Panel 3: Stats */}
-        <div className="lg:col-span-3 space-y-6">
-          <Card className="bg-zinc-900 border-zinc-800"><CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase mb-2"><Zap className="w-4 h-4 text-amber-500" /> Tasks</div>
-            <div className="text-3xl font-bold text-white">{data.tasks.length}</div>
-          </CardContent></Card>
-          <Card className="bg-zinc-900 border-zinc-800"><CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase mb-2"><Network className="w-4 h-4 text-primary" /> Modules</div>
-            <div className="text-3xl font-bold text-white">{data.features.length}</div>
-          </CardContent></Card>
+        {/* Panel 3: Metrics & Overview (col-span-3) */}
+        <div className="lg:col-span-3 space-y-6 flex flex-col">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500" />
+                Project Complexity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white mb-1">High</div>
+              <p className="text-xs text-zinc-500">Based on security and real-time requirements.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary-500" />
+                Estimated Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white mb-1">4-6 Weeks</div>
+              <p className="text-xs text-zinc-500">Assumes a team of 3 developers.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-primary-900/20 to-zinc-900 border-primary-900/50 flex-1">
+            <CardHeader>
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <Network className="w-4 h-4 text-primary-400" />
+                Next Step
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-400 mb-4">
+                We've mapped these features to a microservices architecture diagram.
+              </p>
+              <Button
+                onClick={() => navigate("/dashboard/architecture")}
+                className="w-full bg-primary hover:brightness-110 text-white"
+              >
+                View Architecture Diagram
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </DashboardLayout>

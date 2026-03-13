@@ -10,42 +10,31 @@ export interface TestCase {
 }
 
 export const functionalTests: TestCase[] = [
-  { id: 'f1', method: 'POST', endpoint: '/api/auth/signup', description: 'Valid signup with new email', expected: '201 { user, accessToken }', status: 'pass' },
-  { id: 'f2', method: 'POST', endpoint: '/api/auth/login', description: 'Valid credentials', expected: '200 { user, accessToken }', status: 'pass' },
-  { id: 'f3', method: 'POST', endpoint: '/api/auth/logout', description: 'Clear session cookie', expected: '200 { success: true }', status: 'pass' },
-  { id: 'f4', method: 'POST', endpoint: '/api/auth/refresh', description: 'Refresh with valid cookie', expected: '200 { accessToken }', status: 'pass' },
-  { id: 'f5', method: 'GET', endpoint: '/api/auth/me', description: 'Get current user profile', expected: '200 { user }', status: 'pass' },
-  { id: 'f6', method: 'GET', endpoint: '/api/projects', description: 'List all user projects', expected: '200 Project[]', status: 'pass' },
-  { id: 'f7', method: 'POST', endpoint: '/api/projects', description: 'Create new project', expected: '201 Project', status: 'pass' },
-  { id: 'f8', method: 'POST', endpoint: '/api/projects/upload', description: 'Upload PRD file (PDF)', expected: '200 { jobId, status }', status: 'pass' },
-  { id: 'f9', method: 'GET', endpoint: '/api/projects/:id/analysis', description: 'Get analysis results', expected: '200 AnalysisResult', status: 'pass' },
-  { id: 'f10', method: 'GET', endpoint: '/api/projects/:id/tasks', description: 'List tasks with filters', expected: '200 { features, stories, tasks }', status: 'pass' },
-  { id: 'f11', method: 'PATCH', endpoint: '/api/projects/:id/tasks/:taskId', description: 'Update task status', expected: '200 Task', status: 'pass' },
-  { id: 'f12', method: 'GET', endpoint: '/api/projects/:id/sprints', description: 'Get sprints with tasks', expected: '200 Sprint[]', status: 'pass' },
+  { id: 'f1', method: 'GET', endpoint: '/api/v1/restaurants', description: 'List nearby restaurants with active status', expected: '200 Restaurant[]', status: 'pass' },
+  { id: 'f2', method: 'GET', endpoint: '/api/v1/restaurants/:id/menu', description: 'Fetch menu and categorization', expected: '200 Menu', status: 'pass' },
+  { id: 'f3', method: 'POST', endpoint: '/api/v1/orders', description: 'Place a new delivery order', expected: '201 { orderId, status: "pending" }', status: 'pass' },
+  { id: 'f4', method: 'GET', endpoint: '/api/v1/orders/:id/track', description: 'Get real-time delivery status', expected: '200 { status: "in_transit", eta: 12 }', status: 'pass' },
+  { id: 'f5', method: 'POST', endpoint: '/api/v1/rider/status', description: 'Update rider GPS coordinates', expected: '200 { success: true }', status: 'pass' },
+  { id: 'f6', method: 'POST', endpoint: '/api/v1/payments/verify', description: 'Verify digital wallet payment', expected: '200 { transactionId }', status: 'pass' },
+  { id: 'f7', method: 'GET', endpoint: '/api/v1/promos/active', description: 'Fetch applicable discount codes', expected: '200 Coupon[]', status: 'pass' },
+  { id: 'f8', method: 'POST', endpoint: '/api/v1/review/restaurant', description: 'Submit order feedback', expected: '201 { reviewId }', status: 'pass' },
+  { id: 'f9', method: 'GET', endpoint: '/api/v1/user/favorites', description: 'Retrieve favorite restaurants and dishes', expected: '200 Favorite[]', status: 'pass' },
+  { id: 'f10', method: 'POST', endpoint: '/api/v1/user/address', description: 'Add new delivery location', expected: '201 Address', status: 'pass' },
+  { id: 'f11', method: 'GET', endpoint: '/api/v1/search/autocomplete', description: 'Suggest popular dishes and places', expected: '200 Suggesion[]', status: 'pass' },
+  { id: 'f12', method: 'POST', endpoint: '/api/v1/cart/validate', description: 'Check availability and stock in real-time', expected: '200 { valid: true }', status: 'pass' },
 ];
 
 export const edgeCaseTests: TestCase[] = [
-  { id: 'e1', method: 'POST', endpoint: '/api/projects/upload', description: 'Upload exactly 10MB file', expected: '200 { jobId }', status: 'edge' },
-  { id: 'e2', method: 'POST', endpoint: '/api/auth/signup', description: 'Email with + alias (user+test@mail.com)', expected: '201 { user }', status: 'edge' },
-  { id: 'e3', method: 'POST', endpoint: '/api/projects/upload', description: 'PRD with only headings, no body text', expected: '200 { jobId } with low health score', status: 'edge' },
-  { id: 'e4', method: 'GET', endpoint: '/api/projects/:id/tasks', description: 'Filter by non-existent featureId', expected: '200 { tasks: [] }', status: 'edge' },
-  { id: 'e5', method: 'PATCH', endpoint: '/api/projects/:id/tasks/:taskId', description: 'Set status to same current status', expected: '200 Task (idempotent)', status: 'edge' },
-  { id: 'e6', method: 'POST', endpoint: '/api/projects/:id/chat', description: 'Message with 10,000+ characters', expected: '200 ChatMessage (truncated)', status: 'edge' },
-  { id: 'e7', method: 'GET', endpoint: '/api/projects/:id/status', description: 'Poll after processing already complete', expected: '200 { status: "complete" }', status: 'edge' },
-  { id: 'e8', method: 'POST', endpoint: '/api/projects', description: 'Project name with unicode characters', expected: '201 Project', status: 'edge' },
+  { id: 'e1', method: 'POST', endpoint: '/api/v1/orders', description: 'Order from restaurant that just closed', expected: '400 { error: "Restaurant is closed" }', status: 'edge' },
+  { id: 'e2', method: 'POST', endpoint: '/api/v1/orders', description: 'Address outside delivery radius', expected: '200 { warning: "Long-distance surcharge" }', status: 'edge' },
+  { id: 'e3', method: 'GET', endpoint: '/api/v1/restaurants/search', description: 'Search with emoji and special chars', expected: '200 Restaurant[]', status: 'edge' },
+  { id: 'e4', method: 'POST', endpoint: '/api/v1/rider/status', description: 'Update status in area with 0 network', expected: '202 Accepted (queued offline)', status: 'edge' },
 ];
 
 export const negativeTests: TestCase[] = [
-  { id: 'n1', method: 'POST', endpoint: '/api/auth/login', description: 'Invalid password', expected: '401 { error: "Invalid credentials" }', status: 'fail' },
-  { id: 'n2', method: 'POST', endpoint: '/api/auth/login', description: 'Non-existent email', expected: '401 { error: "Invalid credentials" }', status: 'fail' },
-  { id: 'n3', method: 'POST', endpoint: '/api/auth/signup', description: 'Duplicate email', expected: '409 { error: "Email already registered" }', status: 'fail' },
-  { id: 'n4', method: 'POST', endpoint: '/api/auth/signup', description: 'Password under 8 characters', expected: '400 { error: "Password too short" }', status: 'fail' },
-  { id: 'n5', method: 'GET', endpoint: '/api/projects/:id', description: 'Access another user\'s project', expected: '403 { error: "Forbidden" }', status: 'fail' },
-  { id: 'n6', method: 'POST', endpoint: '/api/projects/upload', description: 'Upload 15MB file (exceeds limit)', expected: '413 { error: "File too large" }', status: 'fail' },
-  { id: 'n7', method: 'POST', endpoint: '/api/projects/upload', description: 'Upload .exe file', expected: '400 { error: "Unsupported file type" }', status: 'fail' },
-  { id: 'n8', method: 'GET', endpoint: '/api/auth/me', description: 'No authorization header', expected: '401 { error: "Unauthorized" }', status: 'fail' },
-  { id: 'n9', method: 'DELETE', endpoint: '/api/projects/:id', description: 'Delete non-existent project', expected: '404 { error: "Not found" }', status: 'fail' },
-  { id: 'n10', method: 'POST', endpoint: '/api/projects/:id/chat', description: 'Empty message body', expected: '400 { error: "Content required" }', status: 'fail' },
+  { id: 'n1', method: 'POST', endpoint: '/api/v1/orders', description: 'Order with insufficient wallet balance', expected: '402 { error: "Insufficient funds" }', status: 'fail' },
+  { id: 'n2', method: 'DELETE', endpoint: '/api/v1/orders/:id', description: 'Cancel order already being prepared', expected: '403 { error: "Cancellation period expired" }', status: 'fail' },
+  { id: 'n3', method: 'GET', endpoint: '/api/v1/admin/dashboard', description: 'Customer access to admin endpoints', expected: '403 { error: "Forbidden" }', status: 'fail' },
 ];
 
 export const unitStubs: TestCase[] = [
