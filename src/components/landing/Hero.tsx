@@ -14,7 +14,7 @@ export default function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
             className="font-satoshi text-display-xl text-foreground leading-tight">
-            
+
             Architecture
             <br />
             begins <span className="text-gradient-orange">here.</span>
@@ -25,9 +25,9 @@ export default function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.25 }}
             className="mt-6 max-w-lg text-lg text-muted-foreground leading-relaxed">
-            
+
             Upload any PRD. Blueprint extracts requirements, generates tasks, designs
-            architecture, and scaffolds your codebase — before your first standup.
+            architecture, and scaffolds your codebase before your first standup.
           </motion.p>
 
           <motion.div
@@ -35,18 +35,18 @@ export default function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mt-8 flex gap-4">
-            
+
             {/* WIRED LINKS INSTEAD OF DEAD <a> TAGS */}
             <Link
               to="/auth"
               className="h-12 px-8 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-body hover:scale-[1.02] hover:brightness-110 transition-all glow-orange">
-              
+
               Upload PRD
             </Link>
             <Link
               to="/demo"
               className="h-12 px-8 inline-flex items-center justify-center rounded-lg border border-border text-foreground font-medium text-body hover:bg-overlay transition-all">
-              
+
               View Demo
             </Link>
           </motion.div>
@@ -56,18 +56,18 @@ export default function Hero() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.6 }}
             className="mt-10 flex items-center gap-4">
-            
-            
-
-            
-            
 
 
 
 
 
 
-            
+
+
+
+
+
+
           </motion.div>
         </div>
 
@@ -77,7 +77,7 @@ export default function Hero() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.3 }}
           className="relative hidden lg:block">
-          
+
           <DependencyGraph3D />
         </motion.div>
       </div>

@@ -113,4 +113,78 @@
   .glow-orange-strong {
     box-shadow: 0 0 60px hsl(var(--accent-orange) / 0.2);
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  /* Custom high-contrast scrollbar matching the screenshot reference */
+  /* Target any scrollable element inside the black-themed Demo container */
+  .bg-black .overflow-y-auto::-webkit-scrollbar,
+  .bg-black .overflow-auto::-webkit-scrollbar,
+  .bg-black .custom-scrollbar::-webkit-scrollbar {
+    width: 14px !important;
+    display: block !important;
+  }
+
+  .bg-black .overflow-y-auto::-webkit-scrollbar-track,
+  .bg-black .overflow-auto::-webkit-scrollbar-track,
+  .bg-black .custom-scrollbar::-webkit-scrollbar-track {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .bg-black .overflow-y-auto::-webkit-scrollbar-thumb,
+  .bg-black .overflow-auto::-webkit-scrollbar-thumb,
+  .bg-black .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #64748b !important;
+    border-radius: 20px !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  .bg-black .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+  .bg-black .overflow-auto::-webkit-scrollbar-thumb:hover,
+  .bg-black .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #475569 !important;
+  }
+
+  /* Scrollbar buttons (arrows) */
+  .bg-black .overflow-y-auto::-webkit-scrollbar-button:single-button,
+  .bg-black .overflow-auto::-webkit-scrollbar-button:single-button,
+  .bg-black .custom-scrollbar::-webkit-scrollbar-button:single-button {
+    background-color: #ffffff !important;
+    display: block !important;
+    border-style: solid !important;
+    height: 14px !important;
+    width: 14px !important;
+  }
+
+  /* Up arrow button */
+  .bg-black .overflow-y-auto::-webkit-scrollbar-button:single-button:vertical:decrement,
+  .bg-black .overflow-auto::-webkit-scrollbar-button:single-button:vertical:decrement,
+  .bg-black .custom-scrollbar::-webkit-scrollbar-button:single-button:vertical:decrement {
+    border-width: 0 5px 6px 5px !important;
+    border-color: transparent transparent #475569 transparent !important;
+    background-position: center !important;
+  }
+
+  /* Down arrow button */
+  .bg-black .overflow-y-auto::-webkit-scrollbar-button:single-button:vertical:increment,
+  .bg-black .overflow-auto::-webkit-scrollbar-button:single-button:vertical:increment,
+  .bg-black .custom-scrollbar::-webkit-scrollbar-button:single-button:vertical:increment {
+    border-width: 6px 5px 0 5px !important;
+    border-color: #475569 transparent transparent transparent !important;
+    background-position: center !important;
+  }
+
+  /* Ensure the containers have overflow-y-auto and a proper height */
+  .bg-black.border-zinc-800.rounded-xl.flex main .flex-1.flex.flex-col {
+    height: 100% !important;
+    overflow: hidden !important;
+  }
 }

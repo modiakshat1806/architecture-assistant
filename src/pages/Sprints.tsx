@@ -1,15 +1,17 @@
-// src/pages/Sprints.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Plus, Filter, Search, MoreHorizontal, Clock, CheckCircle2, 
-  CircleDashed, GripVertical, BookOpen, Loader2, RefreshCcw, AlertCircle
+import {
+  Plus, Filter, Search, MoreHorizontal, Clock, CheckCircle2,
+  CircleDashed, GripVertical, BookOpen, Loader2, RefreshCcw, AlertCircle,
+  X,
+  Edit2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 interface Task {
@@ -20,6 +22,7 @@ interface Task {
   type: string;
   points: number;
   story: string;
+  assignee: string;
 }
 
 export default function Sprints() {
@@ -27,6 +30,21 @@ export default function Sprints() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery) return tasks;
+    const query = searchQuery.toLowerCase();
+    return tasks.filter(task =>
+      task.id.toLowerCase().includes(query) ||
+      task.title.toLowerCase().includes(query) ||
+      task.priority.toLowerCase() === query ||
+      task.story.toLowerCase().includes(query) ||
+      task.type.toLowerCase().includes(query)
+    );
+  }, [tasks, searchQuery]);
+
   const { toast } = useToast();
 
   // UPDATED PORT TO 5000
@@ -67,7 +85,7 @@ export default function Sprints() {
       });
 
       if (!response.ok) throw new Error("Failed to update task");
-      
+
       toast({ title: "Live Sync", description: `Task ${taskId} updated to ${newStatus}` });
     } catch (err) {
       fetchTasks(); // Rollback to server state if it fails
@@ -103,8 +121,6 @@ export default function Sprints() {
     e.dataTransfer.dropEffect = "move";
   };
 
-  // --- RENDER HELPERS ---
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "High": return "text-red-400 bg-red-500/10 border-red-500/20";
@@ -114,8 +130,8 @@ export default function Sprints() {
   };
 
   const renderTaskCard = (task: Task) => (
-    <Card 
-      key={task.id} 
+    <Card
+      key={task.id}
       id={task.id}
       draggable
       onDragStart={(e) => handleDragStart(e, task.id)}
@@ -128,11 +144,22 @@ export default function Sprints() {
             <GripVertical className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="text-xs font-mono text-zinc-500">{task.id}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white -mr-2 -mt-2">
+          {/* WIRED UP 3-DOTS BUTTON HERE */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-zinc-500 hover:text-white -mr-2 -mt-2"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevents dragging when clicking the button
+              toast({ title: "Task Options", description: `Opening settings for ${task.id}...` });
+            }}
+          >
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </div>
         <h3 className="text-sm font-medium text-white mb-2 leading-snug">{task.title}</h3>
+
+        {/* Story Linkage */}
         <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-4 bg-zinc-950 w-fit px-2 py-1 rounded border border-zinc-800/80">
           <BookOpen className="w-3 h-3 text-blue-400" />
           {task.story}
@@ -146,8 +173,8 @@ export default function Sprints() {
               {task.points}
             </div>
             <Avatar className="w-6 h-6 border border-zinc-700">
-              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.id}`} />
-              <AvatarFallback>U</AvatarFallback>
+              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignee}`} />
+              <AvatarFallback>{task.assignee.substring(0, 1)}</AvatarFallback>
             </Avatar>
           </div>
         </div>
@@ -157,19 +184,19 @@ export default function Sprints() {
   const syncToClickUp = async () => {
     try {
       toast({ title: "Syncing...", description: "Pushing tasks to ClickUp sprint board." });
-      
+
       const response = await fetch("http://localhost:5000/api/sync-clickup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Passing a mock listId and grouping tasks into a "Sprint" payload [cite: 484]
-        body: JSON.stringify({ 
-          listId: "demo-list-123", 
-          sprint: { name: "Sprint 1", tasks: tasks.map(t => t.id) } 
+        body: JSON.stringify({
+          listId: "demo-list-123",
+          sprint: { name: "Sprint 1", tasks: tasks.map(t => t.id) }
         })
       });
 
       if (!response.ok) throw new Error("Sync failed");
-      
+
       toast({
         title: "Sync Successful",
         description: "Tasks are now live in your external project manager.",
@@ -186,78 +213,166 @@ export default function Sprints() {
           <p className="text-zinc-400 mt-1">Real-time board synced with engineering backend.</p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
+            className="bg-zinc-950 border-zinc-700 text-zinc-400 hover:text-white gap-2"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+          >
+            <Filter className="w-4 h-4" /> {isFilterOpen ? "Hide Filters" : "Filter"}
+          </Button>
+
+          <Button
+            variant="outline"
             className="bg-zinc-950 border-blue-500/30 text-blue-400 hover:bg-blue-500/10 gap-2"
             onClick={syncToClickUp}
-                            > 
-             <RefreshCcw className="w-4 h-4" /> Push to ClickUp
+          >
+            <RefreshCcw className="w-4 h-4" /> Push to ClickUp
           </Button>
-          <Button className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange">
+
+          <Button
+            className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
+            onClick={() => toast({ title: "Create Task", description: "Opening manual task creation modal..." })}
+          >
             <Plus className="w-4 h-4" /> New Task
           </Button>
         </div>
       </div>
 
-      {error ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-red-500/20 rounded-xl bg-red-500/5 p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">Backend Connection Failed</h2>
-          <p className="text-zinc-400 max-w-md mb-6">
-            We couldn't reach the server. Make sure your local API is running on <strong>http://localhost:5000</strong>.
-          </p>
-          <Button onClick={fetchTasks} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
-            Retry Connection
-          </Button>
-        </div>
-      ) : loading && tasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[50vh]">
-          <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-          <p className="text-zinc-400 animate-pulse">Establishing secure connection...</p>
-        </div>
-      ) : (
-        <Tabs defaultValue="board" className="w-full">
-          <div className="flex items-center justify-between mb-6">
-            <TabsList className="bg-zinc-900 border border-zinc-800 text-zinc-400">
-              <TabsTrigger value="board">Board</TabsTrigger>
-              <TabsTrigger value="list">List</TabsTrigger>
-            </TabsList>
-            
-            <div className="relative w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
-              <Input placeholder="Search tasks..." className="pl-9 bg-zinc-900 border-zinc-800 text-white" />
+      {isFilterOpen && (
+        <Card className="bg-zinc-900 border-zinc-800 mb-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          <CardContent className="p-4 flex flex-wrap gap-4 items-center">
+            <div className="relative flex-1 min-w-[300px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <Input
+                placeholder="Search tasks, priorities, or stories..."
+                className="pl-10 bg-zinc-950 border-zinc-800 text-white"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          </div>
-          
-          <TabsContent value="board" className="m-0">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-16rem)] min-h-[500px]">
-              {['todo', 'in-progress', 'done'].map((status) => (
-                <div 
-                  key={status}
-                  className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, status)}
+            <div className="flex gap-2">
+              {['High', 'Medium', 'Low'].map(p => (
+                <Badge
+                  key={p}
+                  variant="outline"
+                  className={`cursor-pointer hover:bg-zinc-800 ${searchQuery === p ? 'bg-primary/20 border-primary text-primary' : 'bg-zinc-950 text-zinc-400'}`}
+                  onClick={() => setSearchQuery(searchQuery === p ? "" : p)}
                 >
-                  <div className="flex items-center justify-between mb-4 px-1">
-                    <h2 className="text-sm font-semibold text-white flex items-center gap-2 capitalize">
-                      {status === 'todo' && <CircleDashed className="w-4 h-4 text-zinc-500" />}
-                      {status === 'in-progress' && <Clock className="w-4 h-4 text-blue-400" />}
-                      {status === 'done' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                      {status.replace('-', ' ')}
-                    </h2>
-                    <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
-                      {tasks.filter(t => t.status === status).length}
-                    </span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                    {tasks.filter(t => t.status === status).map(renderTaskCard)}
-                  </div>
-                </div>
+                  {p}
+                </Badge>
               ))}
             </div>
-          </TabsContent>
-        </Tabs>
+            {searchQuery && (
+              <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")} className="text-zinc-500">
+                <X className="w-4 h-4 mr-2" /> Clear
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
+
+      <Tabs defaultValue="board" className="w-full">
+        <div className="flex items-center justify-between mb-6">
+          <TabsList className="bg-zinc-900 border border-zinc-800 text-zinc-400">
+            <TabsTrigger value="board" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">Board</TabsTrigger>
+            <TabsTrigger value="list" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">List</TabsTrigger>
+          </TabsList>
+
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+            <Input
+              placeholder="Search tasks..."
+              className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-primary"
+            />
+          </div>
+        </div>
+
+        <TabsContent value="board" className="m-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-16rem)] min-h-[500px]">
+            <div
+              className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, 'todo')}
+            >
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <CircleDashed className="w-4 h-4 text-zinc-500" />
+                  To Do
+                </h2>
+                <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
+                  {tasks.filter(t => t.status === 'todo').length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                {filteredTasks.filter(t => t.status === 'todo').map(renderTaskCard)}
+                {filteredTasks.filter(t => t.status === 'todo').length === 0 && (
+                  <div className="h-24 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center text-sm text-zinc-600">
+                    {searchQuery ? "No matching tasks" : "Drop tasks here"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, 'in-progress')}
+            >
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  In Progress
+                </h2>
+                <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
+                  {filteredTasks.filter(t => t.status === 'in-progress').length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                {filteredTasks.filter(t => t.status === 'in-progress').map(renderTaskCard)}
+                {filteredTasks.filter(t => t.status === 'in-progress').length === 0 && (
+                  <div className="h-24 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center text-sm text-zinc-600">
+                    {searchQuery ? "No matching tasks" : "Drop tasks here"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, 'done')}
+            >
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Done
+                </h2>
+                <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
+                  {filteredTasks.filter(t => t.status === 'done').length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                {filteredTasks.filter(t => t.status === 'done').map(renderTaskCard)}
+                {filteredTasks.filter(t => t.status === 'done').length === 0 && (
+                  <div className="h-24 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center text-sm text-zinc-600">
+                    {searchQuery ? "No matching tasks" : "Drop tasks here"}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="list" className="m-0">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="p-0">
+              <div className="text-center py-12 text-zinc-500">
+                List view placeholder. The Kanban board is where the action is!
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 }

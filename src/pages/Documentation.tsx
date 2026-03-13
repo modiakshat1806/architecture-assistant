@@ -10,9 +10,8 @@ const categories = [
     icon: Zap,
     description: "Set up your first project in under 5 minutes.",
     articles: [
-      { title: "Quick Start Guide", description: "Create your first Blueprint.dev project and upload a PRD.", badge: "Popular" },
-      { title: "Installation & Setup", description: "System requirements, account creation, and workspace configuration." },
-      { title: "Core Concepts", description: "Understand PRDs, architecture graphs, task decomposition, and sprint planning." },
+      { title: "Quick Start Guide", description: "Create your first Blueprint.dev project and upload a PRD.", badge: "Popular", href: "/docs/getting-started/quick-start" },
+      { title: "Core Concepts", description: "Understand PRDs, architecture graphs, task decomposition, and sprint planning.", href: "/docs/getting-started/core-concepts" },
     ],
   },
   {
@@ -20,9 +19,8 @@ const categories = [
     icon: FileText,
     description: "How Blueprint.dev parses and structures your requirements.",
     articles: [
-      { title: "Uploading PRDs", description: "Supported formats, file size limits, and best practices for PRD structure." },
-      { title: "Feature Extraction", description: "How AI identifies features, user stories, and acceptance criteria." },
-      { title: "Analysis Output", description: "Understanding the 3-panel analysis view: features, metrics, and risk flags." },
+      { title: "Uploading PRDs", description: "Supported formats, file size limits, and best practices for PRD structure.", href: "/docs/prd-analysis/uploading" },
+      { title: "Feature Extraction", description: "How AI identifies features, user stories, and acceptance criteria.", href: "/docs/prd-analysis/extraction" },
     ],
   },
   {
@@ -30,55 +28,13 @@ const categories = [
     icon: GitBranch,
     description: "System design graphs, dependency mapping, and traceability matrices.",
     articles: [
-      { title: "Architecture Graphs", description: "Interactive node-based system design with service dependencies." },
-      { title: "Traceability Matrix", description: "Link requirements → features → tasks → code for full audit trails." },
-      { title: "Export & Share", description: "Export diagrams as SVG/PNG or share interactive views with your team." },
-    ],
-  },
-  {
-    title: "Code Generation",
-    icon: Code2,
-    description: "AI-powered scaffolding from architecture to working code.",
-    articles: [
-      { title: "Code Templates", description: "Supported languages, frameworks, and customizable boilerplate templates." },
-      { title: "File Tree Explorer", description: "Navigate generated code with syntax highlighting and inline editing." },
-      { title: "CI/CD Integration", description: "Push generated code directly to GitHub with automated PR creation." },
-    ],
-  },
-  {
-    title: "API Reference",
-    icon: Terminal,
-    description: "REST endpoints for programmatic access to Blueprint.dev.",
-    articles: [
-      { title: "Authentication", description: "JWT tokens, API keys, and OAuth2 flows for secure API access." },
-      { title: "Projects API", description: "CRUD operations for projects, PRDs, and analysis results." },
-      { title: "Webhooks", description: "Real-time event notifications for task updates, builds, and deployments." },
-    ],
-  },
-  {
-    title: "Guides & Tutorials",
-    icon: Book,
-    description: "Step-by-step walkthroughs for common workflows.",
-    articles: [
-      { title: "End-to-End Walkthrough", description: "From PRD upload to deployed microservice in 30 minutes.", badge: "New" },
-      { title: "Team Collaboration", description: "Invite members, assign roles, and manage workspace permissions." },
-      { title: "Automation Recipes", description: "Connect GitHub, Jira, and Slack for automated pipeline triggers." },
+      { title: "Architecture Graphs", description: "Interactive node-based system design with service dependencies.", href: "/docs/architecture/graphs" },
+      { title: "Traceability Matrix", description: "Link requirements → features → tasks → code for full audit trails.", href: "/docs/architecture/traceability" },
     ],
   },
 ];
 
 export default function Documentation() {
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredCategories = categories.map((cat) => ({
-    ...cat,
-    articles: cat.articles.filter(
-      (a) =>
-        a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.description.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-  })).filter((cat) => cat.articles.length > 0);
-
   return (
     <div className="min-h-screen bg-canvas text-foreground font-satoshi">
       <Navbar />
@@ -86,35 +42,19 @@ export default function Documentation() {
       {/* Hero */}
       <section className="pt-32 pb-16 px-6">
         <div className="max-w-[1280px] mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold tracking-wide uppercase mb-6">
-            <Book className="w-3.5 h-3.5" />
-            Documentation
-          </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
             Everything you need to <span className="text-primary">build faster</span>
           </h1>
           <p className="text-text-secondary text-lg max-w-2xl mx-auto mb-8">
             Comprehensive guides, API references, and tutorials to help you get the most out of Blueprint.dev.
           </p>
-
-          {/* Search */}
-          <div className="max-w-xl mx-auto relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted group-focus-within:text-primary transition-colors" />
-            <input
-              type="text"
-              placeholder="Search documentation..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface border border-border-subtle rounded-xl py-3.5 pl-12 pr-4 text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all placeholder:text-text-muted text-sm"
-            />
-          </div>
         </div>
       </section>
 
       {/* Categories Grid */}
       <section className="pb-24 px-6">
         <div className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.map((cat) => (
+          {categories.map((cat) => (
             <div
               key={cat.title}
               className="bg-surface border border-border-subtle rounded-2xl p-6 hover:border-primary/30 transition-all group"
@@ -131,8 +71,9 @@ export default function Documentation() {
 
               <div className="space-y-3">
                 {cat.articles.map((article) => (
-                  <button
+                  <Link
                     key={article.title}
+                    to={article.href}
                     className="w-full text-left flex items-start gap-3 p-3 rounded-lg hover:bg-overlay transition-colors group/item"
                   >
                     <ChevronRight className="w-4 h-4 text-text-muted mt-0.5 group-hover/item:text-primary transition-colors" />
@@ -149,7 +90,7 @@ export default function Documentation() {
                       </div>
                       <p className="text-xs text-text-muted mt-0.5 line-clamp-1">{article.description}</p>
                     </div>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </div>

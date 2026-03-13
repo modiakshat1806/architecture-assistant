@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, FileSearch, MessageSquare, ListChecks, Calendar,
-  Network, GitBranch, Code2, FlaskConical, Zap,
-  ArrowRight, CheckCircle2, CircleDashed, Clock, Folder, FileCode2, FileJson, 
+  LayoutDashboard, FileSearch, MessageSquare, MessageSquareMore, ListChecks, Calendar,
+  Network, GitBranch, Code2, FlaskConical, TestTube, Zap,
+  ArrowRight, CheckCircle2, CircleDashed, Clock, Folder, FileCode2, FileJson,
   GitMerge, FileText, Server, Database, Globe, BookOpen,
   Lock, CreditCard, Github, Trello, Slack, AlertCircle, Layout, Menu
 } from 'lucide-react';
@@ -17,20 +17,22 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import Testing from '@/pages/Testing';
 import { ReactFlow, Background, Controls, Handle, Position, MarkerType } from '@xyflow/react';
+import JSZip from 'jszip';
+import { Download } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 type DemoPage = 'overview' | 'analysis' | 'chat' | 'tasks' | 'sprints' | 'architecture' | 'traceability' | 'code' | 'tests' | 'automation';
 
 const navItems: { key: DemoPage; label: string; icon: React.ElementType }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { key: 'analysis', label: 'PRD Analysis', icon: FileSearch },
+  { key: 'analysis', label: 'PRD Analysis', icon: FileText },
+  { key: 'chat', label: 'Chat & Clarify', icon: MessageSquareMore },
   { key: 'tasks', label: 'Tasks', icon: ListChecks },
   { key: 'sprints', label: 'Sprints', icon: Calendar },
   { key: 'architecture', label: 'Architecture', icon: Network },
-  { key: 'traceability', label: 'Traceability', icon: GitBranch },
+  { key: 'traceability', label: 'Traceability', icon: GitMerge },
   { key: 'code', label: 'Code Generator', icon: Code2 },
-  { key: 'tests', label: 'Testing', icon: FlaskConical },
-  { key: 'chat', label: 'Chat & Clarify', icon: MessageSquare },
+  { key: 'tests', label: 'Testing', icon: TestTube },
   { key: 'automation', label: 'Automation', icon: Zap },
 ];
 
@@ -51,16 +53,18 @@ function DemoBanner() {
 function OverviewPanel() {
   const p = demoProject;
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h2 className="text-3xl font-bold text-white tracking-tight">{p.name}</h2>
         <p className="text-zinc-400 mt-1 max-w-2xl">{p.description}</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'PRD Health', value: `${p.healthScore} / 100`, color: 'text-primary' },
           { label: 'Completeness', value: `${p.completeness}%`, color: 'text-blue-400' },
           { label: 'Complexity', value: p.complexity, color: 'text-amber-400' },
+          { label: 'Estimate Timeline', value: '4-6 Weeks', color: 'text-purple-400' },
         ].map(m => (
           <div key={m.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
             <p className="text-xs text-zinc-500 uppercase tracking-wider font-bold mb-1">{m.label}</p>
@@ -68,6 +72,7 @@ function OverviewPanel() {
           </div>
         ))}
       </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Features', value: p.features.length },
@@ -81,18 +86,64 @@ function OverviewPanel() {
           </div>
         ))}
       </div>
-      <div>
-        <h3 className="text-xl font-bold text-white mb-4">Core Features</h3>
-        <div className="space-y-2">
+
+      {/* Strategic Initiatives */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+          <ListChecks className="w-5 h-5 text-primary" />
+          Strategic Initiatives
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {p.features.map(f => (
-            <div key={f.id} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-700 transition-colors">
-              <span className="text-sm font-medium text-white">{f.name}</span>
-              <div className="flex items-center gap-4 text-xs text-zinc-400">
-                <span>{f.storyCount} stories</span>
-                <span>{f.taskCount} tasks</span>
-                <span className={cn('px-2 py-1 rounded-md font-mono font-bold', f.complexity === 'Critical' ? 'text-red-400 bg-red-500/10' : f.complexity === 'High' ? 'text-primary bg-primary/10' : 'text-amber-400 bg-amber-500/10')}>
-                  {f.complexity}
-                </span>
+            <div key={f.id} className="group flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 hover:border-primary/50 transition-all cursor-pointer">
+              <div>
+                <span className="text-base font-bold text-white group-hover:text-primary transition-colors block mb-1">{f.name}</span>
+                <div className="flex items-center gap-3 text-xs text-zinc-500 font-medium">
+                  <span>{f.storyCount} Stories</span>
+                  <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                  <span>{f.taskCount} Tasks</span>
+                </div>
+              </div>
+              <Badge variant="outline" className={cn(
+                'rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-tighter',
+                f.complexity === 'Critical' ? 'text-red-400 bg-red-500/10 border-red-500/20' : 
+                f.complexity === 'High' ? 'text-primary bg-primary/10 border-primary/20' : 
+                'text-zinc-400 bg-zinc-800 border-zinc-700'
+              )}>
+                {f.complexity}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Core Features Extracted Section (NEW) */}
+      <div className="space-y-4 py-4">
+        <h3 className="text-xl font-bold text-white">Core Features Extracted</h3>
+        <div className="space-y-2">
+          {[
+            { name: "Order Tracking", stories: 4, tasks: 12, complexity: "High" },
+            { name: "Kitchen Display System", stories: 5, tasks: 18, complexity: "High" },
+            { name: "POS Integration", stories: 4, tasks: 16, complexity: "Critical" },
+            { name: "Rider Management", stories: 3, tasks: 14, complexity: "High" },
+            { name: "Menu CMS", stories: 4, tasks: 15, complexity: "High" },
+            { name: "Analytics Dashboard", stories: 4, tasks: 14, complexity: "Medium" }
+          ].map((feature, i) => (
+            <div key={i} className="flex items-center justify-between p-4 bg-zinc-900/30 border border-zinc-800 hover:bg-zinc-900/50 transition-colors rounded-lg">
+              <span className="text-sm font-semibold text-white">{feature.name}</span>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4 text-xs text-zinc-500 font-medium">
+                  <span>{feature.stories} stories</span>
+                  <span>{feature.tasks} tasks</span>
+                </div>
+                <Badge variant="outline" className={cn(
+                  'rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-tight w-16 text-center justify-center',
+                  feature.complexity === 'Critical' ? 'text-red-400 bg-red-500/10 border-red-500/20' : 
+                  feature.complexity === 'High' ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' : 
+                  'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
+                )}>
+                  {feature.complexity}
+                </Badge>
               </div>
             </div>
           ))}
@@ -178,7 +229,7 @@ function TasksDemoPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Project Backlog</h2>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Tasks</h2>
         <p className="text-zinc-400 mt-1">Review AI-generated User Stories and effort estimations.</p>
       </div>
       <div className="space-y-4">
@@ -316,11 +367,27 @@ const archEdges = [
 ];
 
 function ArchitectureDemoPanel() {
+  const handleExport = () => {
+    const data = { nodes: archNodes, edges: archEdges };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'architecture_blueprint.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
-      <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">System Architecture</h2>
-        <p className="text-zinc-400 mt-1">Sign in to click nodes and view specific endpoints & logic.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">System Architecture</h2>
+          <p className="text-zinc-400 mt-1">Sign in to click nodes and view specific endpoints & logic.</p>
+        </div>
+        <Button onClick={handleExport} variant="outline" className="gap-2 border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300">
+          <Download className="w-4 h-4" /> Export
+        </Button>
       </div>
       <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
         <ReactFlow nodes={archNodes} edges={archEdges} nodeTypes={{ blueprint: BlueprintNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
@@ -360,11 +427,27 @@ const traceEdges = [
 ];
 
 function TraceabilityDemoPanel() {
+  const handleExport = () => {
+    const data = { nodes: traceNodes, edges: traceEdges };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'traceability_matrix.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
-      <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Traceability Matrix</h2>
-        <p className="text-zinc-400 mt-1">Shows how PRD requirements map to generated services and tickets.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Traceability Matrix</h2>
+          <p className="text-zinc-400 mt-1">Shows how PRD requirements map to generated services and tickets.</p>
+        </div>
+        <Button onClick={handleExport} variant="outline" className="gap-2 border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300">
+          <Download className="w-4 h-4" /> Export
+        </Button>
       </div>
       <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
         <ReactFlow nodes={traceNodes} edges={traceEdges} nodeTypes={{ trace: TraceNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
@@ -379,39 +462,95 @@ function TraceabilityDemoPanel() {
 function CodeDemoPanel() {
   const [activeFile, setActiveFile] = useState('index.ts');
 
+  const fileContents: Record<string, string> = {
+    'index.ts': `import express from 'express';
+import authRoutes from './routes/auth.routes';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use('/api/v1/auth', authRoutes);
+
+app.listen(PORT, () => {
+  console.log(\`Server running on port \${PORT}\`);
+});`,
+    'auth.routes.ts': `import { Router } from 'express';
+import { login, register } from '../controllers/auth.controller';
+
+const router = Router();
+
+// Maps to Requirements in PRD-01
+router.post('/login', login);
+router.post('/register', register);
+
+export default router;`,
+    'package.json': `{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0"
+  }
+}`
+  };
+
+  const handleExportZip = async () => {
+    const zip = new JSZip();
+    const src = zip.folder("src");
+    
+    // index.ts in src
+    src?.file("index.ts", fileContents['index.ts']);
+    
+    // routes folder
+    const routes = src?.folder("routes");
+    routes?.file("auth.routes.ts", fileContents['auth.routes.ts']);
+    
+    // package.json in root
+    zip.file("package.json", fileContents['package.json']);
+
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'demo-code-scaffolding.zip';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const files: Record<string, JSX.Element> = {
     'index.ts': (
       <>
-        <span className="text-pink-400">import</span> express <span className="text-pink-400">from</span> <span className="text-green-400">'express'</span>;<br/>
-        <span className="text-pink-400">import</span> authRoutes <span className="text-pink-400">from</span> <span className="text-green-400">'./routes/auth.routes'</span>;<br/><br/>
-        <span className="text-blue-400">const</span> app = express();<br/>
-        <span className="text-blue-400">const</span> PORT = process.env.PORT || <span className="text-orange-400">3000</span>;<br/><br/>
-        app.use(express.json());<br/>
-        app.use(<span className="text-green-400">'/api/v1/auth'</span>, authRoutes);<br/><br/>
+        <span className="text-pink-400">import</span> express <span className="text-pink-400">from</span> <span className="text-green-400">'express'</span>;<br />
+        <span className="text-pink-400">import</span> authRoutes <span className="text-pink-400">from</span> <span className="text-green-400">'./routes/auth.routes'</span>;<br /><br />
+        <span className="text-blue-400">const</span> app = express();<br />
+        <span className="text-blue-400">const</span> PORT = process.env.PORT || <span className="text-orange-400">3000</span>;<br /><br />
+        app.use(express.json());<br />
+        app.use(<span className="text-green-400">'/api/v1/auth'</span>, authRoutes);<br /><br />
         app.listen(PORT, () ={'>'} {'{\n'}
         {'  '}console.log(<span className="text-green-400">{"`Server running on port ${PORT}`"}</span>);{'\n}'});
       </>
     ),
     'auth.routes.ts': (
       <>
-        <span className="text-pink-400">import</span> {'{'} Router {'}'} <span className="text-pink-400">from</span> <span className="text-green-400">'express'</span>;<br/>
-        <span className="text-pink-400">import</span> {'{'} login, register {'}'} <span className="text-pink-400">from</span> <span className="text-green-400">'../controllers/auth.controller'</span>;<br/><br/>
-        <span className="text-blue-400">const</span> router = Router();<br/><br/>
-        <span className="text-zinc-500">// Maps to Requirements in PRD-01</span><br/>
-        router.post(<span className="text-green-400">'/login'</span>, login);<br/>
-        router.post(<span className="text-green-400">'/register'</span>, register);<br/><br/>
+        <span className="text-pink-400">import</span> {'{'} Router {'}'} <span className="text-pink-400">from</span> <span className="text-green-400">'express'</span>;<br />
+        <span className="text-pink-400">import</span> {'{'} login, register {'}'} <span className="text-pink-400">from</span> <span className="text-green-400">'../controllers/auth.controller'</span>;<br /><br />
+        <span className="text-blue-400">const</span> router = Router();<br /><br />
+        <span className="text-zinc-500">// Maps to Requirements in PRD-01</span><br />
+        router.post(<span className="text-green-400">'/login'</span>, login);<br />
+        router.post(<span className="text-green-400">'/register'</span>, register);<br /><br />
         <span className="text-pink-400">export default</span> router;
       </>
     ),
     'package.json': (
       <>
-        {'{'}<br/>
-        {'  '}<span className="text-blue-400">"name"</span>: <span className="text-green-400">"auth-service"</span>,<br/>
-        {'  '}<span className="text-blue-400">"version"</span>: <span className="text-green-400">"1.0.0"</span>,<br/>
+        {'{'}<br />
+        {'  '}<span className="text-blue-400">"name"</span>: <span className="text-green-400">"auth-service"</span>,<br />
+        {'  '}<span className="text-blue-400">"version"</span>: <span className="text-green-400">"1.0.0"</span>,<br />
         {'  '}<span className="text-blue-400">"dependencies"</span>: {'{\n'}
-        {'    '}<span className="text-blue-400">"express"</span>: <span className="text-green-400">"^4.18.2"</span>,<br/>
-        {'    '}<span className="text-blue-400">"jsonwebtoken"</span>: <span className="text-green-400">"^9.0.0"</span><br/>
-        {'  }'}<br/>
+        {'    '}<span className="text-blue-400">"express"</span>: <span className="text-green-400">"^4.18.2"</span>,<br />
+        {'    '}<span className="text-blue-400">"jsonwebtoken"</span>: <span className="text-green-400">"^9.0.0"</span><br />
+        {'  }'}<br />
         {'}'}
       </>
     )
@@ -419,9 +558,14 @@ function CodeDemoPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Code Scaffolding</h2>
-        <p className="text-zinc-400 mt-1">Sign in to download the full .ZIP or push directly to GitHub.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Code Scaffolding</h2>
+          <p className="text-zinc-400 mt-1">Sign in to download the full .ZIP or push directly to GitHub.</p>
+        </div>
+        <Button onClick={handleExportZip} className="gap-2 bg-primary hover:brightness-110 text-white">
+          <Download className="w-4 h-4" /> Export (ZIP)
+        </Button>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[400px]">
         <Card className="col-span-1 bg-zinc-900 border-zinc-800 flex flex-col">
@@ -506,7 +650,7 @@ export default function Demo() {
       case 'overview': return <OverviewPanel />;
       case 'analysis': return <AnalysisPanel />;
       case 'chat': return <ChatPanel />;
-      case 'tests': return <Testing />;
+      case 'tests': return <Testing isDemo={true} />;
       case 'tasks': return <TasksDemoPanel />;
       case 'sprints': return <SprintsDemoPanel />;
       case 'architecture': return <ArchitectureDemoPanel />;
@@ -521,7 +665,12 @@ export default function Demo() {
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950 text-white">
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Layout className="w-6 h-6 text-primary" />
+          <svg width="24" height="24" viewBox="0 0 28 28" fill="none" className="text-primary">
+            <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
+            <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+            <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
+          </svg>
           <span className="font-bold">Blueprint.dev</span>
         </Link>
         <button className="p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -536,7 +685,12 @@ export default function Demo() {
       `}>
         <div className="h-full flex flex-col">
           <Link to="/" className="hidden md:flex items-center gap-2 p-6 border-b border-zinc-800 text-white hover:bg-zinc-800/50 transition-colors">
-            <Layout className="w-6 h-6 text-primary" />
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="text-primary">
+              <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.9" />
+              <rect x="16" y="2" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+              <rect x="2" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.5" />
+              <rect x="16" y="16" width="10" height="10" rx="2" fill="currentColor" opacity="0.3" />
+            </svg>
             <span className="text-xl font-bold tracking-tight">Blueprint.dev</span>
           </Link>
 
@@ -549,8 +703,8 @@ export default function Demo() {
                   onClick={() => { setActive(item.key); setIsMobileMenuOpen(false); }}
                   className={`
                     w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium
-                    ${isActive 
-                      ? "bg-primary/10 text-primary" 
+                    ${isActive
+                      ? "bg-primary/10 text-primary"
                       : "text-zinc-400 hover:bg-zinc-800 hover:text-white"}
                   `}
                 >
@@ -563,11 +717,11 @@ export default function Demo() {
 
           <div className="p-4 border-t border-zinc-800">
             <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-zinc-950 border border-zinc-800">
-               <div className="flex flex-col text-left">
-                 <span className="text-sm font-medium text-white leading-none">Guest Mode</span>
-                 <span className="text-[10px] text-zinc-500 mt-1">Read-only Demo</span>
-               </div>
-               <Link to="/auth" className="text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 font-medium transition-colors">Sign Up</Link>
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-medium text-white leading-none">Guest Mode</span>
+                <span className="text-[10px] text-zinc-500 mt-1">Read-only Demo</span>
+              </div>
+              <Link to="/auth" className="text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 font-medium transition-colors">Sign Up</Link>
             </div>
           </div>
         </div>
@@ -576,14 +730,14 @@ export default function Demo() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <DemoBanner />
-        
+
         <header className="hidden md:flex items-center justify-between px-8 py-4 border-b border-zinc-800 bg-zinc-950">
           <div className="flex items-center gap-4 text-zinc-400 text-sm">
             <span>Demo Workspace</span>
             <span>/</span>
             <span className="text-white font-medium">{navItems.find(i => i.key === active)?.label}</span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <Link to="/auth">
               <Button className="bg-primary hover:brightness-110 text-white gap-2 h-9 text-sm glow-orange">
