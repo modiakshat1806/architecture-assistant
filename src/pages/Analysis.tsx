@@ -24,7 +24,7 @@ const ambiguities = [
 ];
 
 const mockData: ParsedData = {
-  projectName: "V2 Platform Refactor",
+  projectName: "E-Commerce Replatforming",
   features: ["Multi-tenant Auth", "Real-time Dashboards", "Event Sourcing"],
   stories: [],
   tasks: [],

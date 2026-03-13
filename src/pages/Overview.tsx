@@ -1,4 +1,4 @@
-// src/pages/Overview.tsx
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,7 +29,25 @@ const projectData = {
 
 export default function Overview() {
   const navigate = useNavigate();
-  const p = projectData;
+  const [p, setProjectData] = useState(projectData);
+
+  useEffect(() => {
+    const rawData = localStorage.getItem("blueprint_project_data");
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        if (parsed.analysis) {
+          setProjectData(prev => ({
+            ...prev,
+            name: parsed.analysis.projectName || prev.name,
+            description: parsed.analysis.projectDescription || prev.description
+          }));
+        }
+      } catch (e) {
+        console.error("Error parsing blueprint data", e);
+      }
+    }
+  }, []);
 
   return (
     <DashboardLayout>
