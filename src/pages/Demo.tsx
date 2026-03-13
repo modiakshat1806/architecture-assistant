@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import Testing from '@/pages/Testing';
 import { ReactFlow, Background, Controls, Handle, Position, MarkerType } from '@xyflow/react';
+import JSZip from 'jszip';
+import { Download } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 type DemoPage = 'overview' | 'analysis' | 'chat' | 'tasks' | 'sprints' | 'architecture' | 'traceability' | 'code' | 'tests' | 'automation';
@@ -365,11 +367,27 @@ const archEdges = [
 ];
 
 function ArchitectureDemoPanel() {
+  const handleExport = () => {
+    const data = { nodes: archNodes, edges: archEdges };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'architecture_blueprint.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
-      <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">System Architecture</h2>
-        <p className="text-zinc-400 mt-1">Sign in to click nodes and view specific endpoints & logic.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">System Architecture</h2>
+          <p className="text-zinc-400 mt-1">Sign in to click nodes and view specific endpoints & logic.</p>
+        </div>
+        <Button onClick={handleExport} variant="outline" className="gap-2 border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300">
+          <Download className="w-4 h-4" /> Export
+        </Button>
       </div>
       <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
         <ReactFlow nodes={archNodes} edges={archEdges} nodeTypes={{ blueprint: BlueprintNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
@@ -409,11 +427,27 @@ const traceEdges = [
 ];
 
 function TraceabilityDemoPanel() {
+  const handleExport = () => {
+    const data = { nodes: traceNodes, edges: traceEdges };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'traceability_matrix.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
-      <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Traceability Matrix</h2>
-        <p className="text-zinc-400 mt-1">Shows how PRD requirements map to generated services and tickets.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Traceability Matrix</h2>
+          <p className="text-zinc-400 mt-1">Shows how PRD requirements map to generated services and tickets.</p>
+        </div>
+        <Button onClick={handleExport} variant="outline" className="gap-2 border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300">
+          <Download className="w-4 h-4" /> Export
+        </Button>
       </div>
       <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
         <ReactFlow nodes={traceNodes} edges={traceEdges} nodeTypes={{ trace: TraceNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
@@ -427,6 +461,62 @@ function TraceabilityDemoPanel() {
 // --- CODE & AUTOMATION PANELS ---
 function CodeDemoPanel() {
   const [activeFile, setActiveFile] = useState('index.ts');
+
+  const fileContents: Record<string, string> = {
+    'index.ts': `import express from 'express';
+import authRoutes from './routes/auth.routes';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use('/api/v1/auth', authRoutes);
+
+app.listen(PORT, () => {
+  console.log(\`Server running on port \${PORT}\`);
+});`,
+    'auth.routes.ts': `import { Router } from 'express';
+import { login, register } from '../controllers/auth.controller';
+
+const router = Router();
+
+// Maps to Requirements in PRD-01
+router.post('/login', login);
+router.post('/register', register);
+
+export default router;`,
+    'package.json': `{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0"
+  }
+}`
+  };
+
+  const handleExportZip = async () => {
+    const zip = new JSZip();
+    const src = zip.folder("src");
+    
+    // index.ts in src
+    src?.file("index.ts", fileContents['index.ts']);
+    
+    // routes folder
+    const routes = src?.folder("routes");
+    routes?.file("auth.routes.ts", fileContents['auth.routes.ts']);
+    
+    // package.json in root
+    zip.file("package.json", fileContents['package.json']);
+
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'demo-code-scaffolding.zip';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const files: Record<string, JSX.Element> = {
     'index.ts': (
@@ -468,9 +558,14 @@ function CodeDemoPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">Code Scaffolding</h2>
-        <p className="text-zinc-400 mt-1">Sign in to download the full .ZIP or push directly to GitHub.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Code Scaffolding</h2>
+          <p className="text-zinc-400 mt-1">Sign in to download the full .ZIP or push directly to GitHub.</p>
+        </div>
+        <Button onClick={handleExportZip} className="gap-2 bg-primary hover:brightness-110 text-white">
+          <Download className="w-4 h-4" /> Export (ZIP)
+        </Button>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[400px]">
         <Card className="col-span-1 bg-zinc-900 border-zinc-800 flex flex-col">
