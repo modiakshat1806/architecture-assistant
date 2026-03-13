@@ -47,11 +47,19 @@ export default function Automation() {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
+  // ── Slack state ────────────────────────────────────────────
+  const [slackChannels, setSlackChannels] = useState<Array<{ slackChannelId: string; name: string }>>([]);
+  const [selectedSlackChannel, setSelectedSlackChannel] = useState<string>("");
+  const [slackWorkspace, setSlackWorkspace] = useState<string>("");
+  const [slackSelectedChannelName, setSlackSelectedChannelName] = useState<string>("");
+
   const integrations = [
     { id: "github", name: "GitHub", desc: "Push scaffolded code directly to your repositories.", icon: Github },
     { id: "clickup", name: "ClickUp", desc: "Push sprints and tasks to your ClickUp Workspace.", icon: ClickUpIcon },
     { id: "slack", name: "Slack", desc: "Receive real-time notifications for architecture changes.", icon: Slack }
   ];
+
+  // ── GitHub helpers ─────────────────────────────────────────
 
   const loadGitHubState = async (currentProfileId: string, currentProjectId: string) => {
     if (!currentProfileId) {
@@ -104,6 +112,107 @@ export default function Automation() {
     }
   };
 
+  // ── Slack helpers ──────────────────────────────────────────
+
+  const loadSlackState = async (currentProfileId: string) => {
+    if (!currentProfileId) {
+      setConnections((prev) => ({ ...prev, slack: false }));
+      setSlackChannels([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${backendBase}/api/slack/connection?profileId=${encodeURIComponent(currentProfileId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const connected = Boolean(data?.connected);
+
+      setConnections((prev) => ({ ...prev, slack: connected }));
+      setSlackWorkspace(data?.connection?.workspaceName || "");
+      setSlackSelectedChannelName(data?.connection?.channelName || "");
+      if (data?.connection?.channelId) {
+        setSelectedSlackChannel(data.connection.channelId);
+      }
+
+      if (connected) {
+        try {
+          const chRes = await fetch(`${backendBase}/api/slack/channels?profileId=${encodeURIComponent(currentProfileId)}`);
+          if (chRes.ok) {
+            const chData = await chRes.json();
+            setSlackChannels(chData?.channels || []);
+          }
+        } catch {
+          // silently ignore channel fetch errors
+        }
+      }
+    } catch {
+      setConnections((prev) => ({ ...prev, slack: false }));
+    }
+  };
+
+  const connectSlack = async () => {
+    if (!profileId) {
+      toast({ title: "Profile missing", description: "Login required to connect Slack.", variant: "destructive" });
+      return;
+    }
+
+    const res = await fetch(`${backendBase}/api/slack/oauth/start?profileId=${encodeURIComponent(profileId)}`);
+    const data = await res.json();
+
+    if (!res.ok || !data?.url) {
+      throw new Error(data?.error || "Failed to start Slack OAuth flow.");
+    }
+
+    window.location.href = data.url;
+  };
+
+  const selectSlackChannel = async (channelId: string) => {
+    setSelectedSlackChannel(channelId);
+    const channelObj = slackChannels.find((c) => c.slackChannelId === channelId);
+    const channelName = channelObj?.name || channelId;
+    setSlackSelectedChannelName(channelName);
+
+    const res = await fetch(`${backendBase}/api/slack/channel/select`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId, channelId, channelName }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to select channel.");
+    }
+  };
+
+  const testSlack = async () => {
+    const res = await fetch(`${backendBase}/api/slack/test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId, channel: selectedSlackChannel }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Failed to send test message.");
+    return data;
+  };
+
+  const disconnectSlack = async () => {
+    const res = await fetch(`${backendBase}/api/slack/disconnect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Failed to disconnect Slack.");
+
+    setConnections((prev) => ({ ...prev, slack: false }));
+    setSlackChannels([]);
+    setSelectedSlackChannel("");
+    setSlackWorkspace("");
+    setSlackSelectedChannelName("");
+  };
+
+  // ── Init ───────────────────────────────────────────────────
+
   useEffect(() => {
     const init = async () => {
       const queryProfileId = searchParams.get("profileId") || "";
@@ -118,6 +227,15 @@ export default function Automation() {
       }
 
       await loadGitHubState(effectiveProfileId, projectId);
+      await loadSlackState(effectiveProfileId);
+
+      // Handle post-OAuth redirects
+      const slackParam = searchParams.get("slack");
+      if (slackParam === "connected") {
+        toast({ title: "Slack connected", description: "Your Slack workspace is now connected." });
+      } else if (slackParam === "error") {
+        toast({ title: "Slack error", description: searchParams.get("message") || "OAuth failed.", variant: "destructive" });
+      }
     };
 
     init();
@@ -130,6 +248,8 @@ export default function Automation() {
     const [owner, repo] = selectedRepo.split("/");
     return { owner, repo };
   }, [selectedRepo]);
+
+  // ── GitHub card actions ────────────────────────────────────
 
   const connectGitHub = async () => {
     if (!profileId) {
@@ -238,33 +358,46 @@ export default function Automation() {
     });
   };
 
+  // ── Toggle handler ─────────────────────────────────────────
+
   const handleToggle = (id: string) => {
     const nextState = !connections[id as keyof typeof connections];
 
-    if (id !== "github") {
-      setConnections(prev => ({ ...prev, [id]: nextState }));
+    if (id === "github") {
+      if (!nextState) {
+        toast({ title: "GitHub stays connected", description: "Disconnect flow is not enabled yet." });
+        return;
+      }
+      setBusy(true);
+      connectGitHub()
+        .catch((error: any) => toast({ title: "GitHub connect failed", description: error.message, variant: "destructive" }))
+        .finally(() => setBusy(false));
       return;
     }
 
-    if (!nextState) {
-      toast({
-        title: "GitHub stays connected",
-        description: "Disconnect flow is not enabled yet.",
-      });
+    if (id === "slack") {
+      if (nextState) {
+        // Connect
+        setBusy(true);
+        connectSlack()
+          .catch((error: any) => toast({ title: "Slack connect failed", description: error.message, variant: "destructive" }))
+          .finally(() => setBusy(false));
+      } else {
+        // Disconnect
+        setBusy(true);
+        disconnectSlack()
+          .then(() => toast({ title: "Slack disconnected" }))
+          .catch((error: any) => toast({ title: "Slack disconnect failed", description: error.message, variant: "destructive" }))
+          .finally(() => setBusy(false));
+      }
       return;
     }
-    
-    setBusy(true);
-    connectGitHub()
-      .catch((error: any) => {
-        toast({
-          title: "GitHub connect failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      })
-      .finally(() => setBusy(false));
+
+    // ClickUp – simple toggle
+    setConnections(prev => ({ ...prev, [id]: nextState }));
   };
+
+  // ── Render ─────────────────────────────────────────────────
 
   return (
     <DashboardLayout>
@@ -272,7 +405,7 @@ export default function Automation() {
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
             <Zap className="w-8 h-8 text-primary" />
-            Automations & Integrations
+            Automations &amp; Integrations
           </h1>
           <p className="text-zinc-400 mt-1">Connect your workspace to your engineering stack to sync code and tasks seamlessly.</p>
         </div>
@@ -315,6 +448,7 @@ export default function Automation() {
                   )}
                 </div>
 
+                {/* ── GitHub card body ── */}
                 {int.id === "github" && (
                   <div className="mt-4 space-y-3">
                     <div className="text-xs text-zinc-500 break-all">projectId: {projectId || "(missing)"}</div>
@@ -374,6 +508,73 @@ export default function Automation() {
                           .finally(() => setBusy(false));
                       }}>
                         Push
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Slack card body ── */}
+                {int.id === "slack" && connections.slack && (
+                  <div className="mt-4 space-y-3">
+                    <div className="text-xs text-zinc-500 break-all">
+                      workspace: {slackWorkspace || "(unknown)"}
+                    </div>
+                    <div className="text-xs text-zinc-500 break-all">
+                      channel: {slackSelectedChannelName || "(none selected)"}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300">Select channel</Label>
+                      <Select value={selectedSlackChannel} onValueChange={(val) => {
+                        setBusy(true);
+                        selectSlackChannel(val)
+                          .then(() => toast({ title: "Channel selected" }))
+                          .catch((error: any) => toast({ title: "Channel select failed", description: error.message, variant: "destructive" }))
+                          .finally(() => setBusy(false));
+                      }}>
+                        <SelectTrigger className="bg-zinc-950 border-zinc-700 text-zinc-200">
+                          <SelectValue placeholder="Choose channel" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                          {slackChannels.length === 0 && (
+                            <div className="px-2 py-2 text-xs text-zinc-400">No channels found. Invite the bot to channels first.</div>
+                          )}
+                          {slackChannels.map((ch) => (
+                            <SelectItem key={ch.slackChannelId} value={ch.slackChannelId}>
+                              #{ch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        className="w-full"
+                        disabled={busy || !selectedSlackChannel}
+                        onClick={() => {
+                          setBusy(true);
+                          testSlack()
+                            .then(() => toast({ title: "Test message sent", description: "Check your Slack channel." }))
+                            .catch((error: any) => toast({ title: "Test failed", description: error.message, variant: "destructive" }))
+                            .finally(() => setBusy(false));
+                        }}
+                      >
+                        Send Test
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-red-800/30 text-red-400 hover:bg-red-950/20"
+                        disabled={busy}
+                        onClick={() => {
+                          setBusy(true);
+                          disconnectSlack()
+                            .then(() => toast({ title: "Slack disconnected" }))
+                            .catch((error: any) => toast({ title: "Disconnect failed", description: error.message, variant: "destructive" }))
+                            .finally(() => setBusy(false));
+                        }}
+                      >
+                        Disconnect
                       </Button>
                     </div>
                   </div>

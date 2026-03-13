@@ -17,6 +17,7 @@ model Profile {
   
   projects  Project[]
   githubConnection GitHubConnection?
+  slackIntegration SlackIntegration?
 }
 
 model Project {
@@ -105,4 +106,49 @@ model GitHubRepoMapping {
 
   project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   githubConnection   GitHubConnection @relation(fields: [githubConnectionId], references: [id], onDelete: Cascade)
+}
+
+// ── Slack Integration ────────────────────────────────────────
+
+model SlackIntegration {
+  id                String   @id @default(uuid()) @db.Uuid
+  profileId         String   @unique @db.Uuid
+  workspaceId       String
+  workspaceName     String?
+  botTokenEncrypted String   @db.Text
+  scope             String?
+  channelId         String?
+  channelName       String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  profile           Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  channels          SlackChannel[]
+  eventLogs         SlackEventLog[]
+}
+
+model SlackChannel {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slackIntegrationId String   @db.Uuid
+  slackChannelId     String
+  name               String
+  isSelected         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  integration        SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([slackIntegrationId, slackChannelId])
+}
+
+model SlackEventLog {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slackIntegrationId String   @db.Uuid
+  eventType          String
+  payload            Json     @default("{}")
+  status             String   @default("sent")
+  errorMessage       String?
+  createdAt          DateTime @default(now())
+
+  integration        SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
 }

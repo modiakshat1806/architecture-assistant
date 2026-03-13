@@ -1,5 +1,6 @@
 // server.ts
 
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -16,6 +17,7 @@ import clickupRouter from "./src/routes/clickup.js";
 import slackRouter from "./src/routes/slack.js";
 import githubWebhookRouter from "./src/webhooks/githubWebhook.js";
 import clickupWebhookRouter from "./src/webhooks/clickupWebhook.js";
+import slackWebhookRouter from "./src/webhooks/slackWebhook.js";
 
 const { default: githubRouter } = await import("./src/routes/github.js");
 
@@ -47,6 +49,7 @@ app.use("/api/clickup", clickupRouter);
 app.use("/api/slack", slackRouter);
 app.use("/webhooks", githubWebhookRouter);
 app.use("/webhooks", clickupWebhookRouter);
+app.use("/webhooks", slackWebhookRouter);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
