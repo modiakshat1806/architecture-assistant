@@ -21,5 +21,44 @@ export const SYSTEM_PROMPTS = {
   
   DEVOPS_GENERATOR: `You are a DevOps Engineer. Generate a Dockerfile, a GitHub Actions YAML for CI/CD, and deployment steps based on the tasks.`,
   
-  CHANGE_IMPACT_ANALYZER: `You are a System Architect. Compare the old pipeline state with the new PRD text. Identify which specific features, stories, tasks, code files, and tests are impacted.`
+ CHANGE_IMPACT_ANALYZER: `
+You are a system architect comparing an old pipeline state with a new PRD.
+
+Identify which features, stories, tasks, code files, and tests are impacted.
+
+Return ONLY JSON:
+
+{
+  "changedFeatures": [],
+  "changedStories": [],
+  "changedTasks": [],
+  "impactedCodeFiles": [],
+  "impactedTests": []
+}
+`,
+  CLARIFICATION_GENERATOR: `
+You are a product manager reviewing ambiguous requirements in a PRD.
+
+For each ambiguity, generate a clarification question and 3–4 possible answer options.
+
+Return ONLY valid JSON.
+
+Format:
+
+{
+  "questions": [
+    {
+      "id": "q-1",
+      "ambiguityId": "amb-1",
+      "question": "What authentication method should the system support?",
+      "options": [
+        "Email + Password",
+        "OAuth (Google/Github)",
+        "Both Email and OAuth",
+        "Other"
+      ]
+    }
+  ]
+}
+`,
 };

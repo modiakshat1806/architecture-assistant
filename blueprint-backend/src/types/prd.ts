@@ -91,6 +91,14 @@ export interface TraceabilityGraph {
   edges: TraceabilityEdge[];
 }
 
+export interface ChangeImpactResult {
+  changedFeatures: string[]
+  changedStories: string[]
+  changedTasks: string[]
+  impactedCodeFiles: string[]
+  impactedTests: string[]
+}
+
 export interface PipelineResult {
   features: Feature[];
   stories: UserStory[];
