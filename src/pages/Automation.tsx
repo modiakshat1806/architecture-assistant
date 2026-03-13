@@ -4,9 +4,10 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Github, Trello, Slack, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
 
 const ClickUpIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -25,7 +26,28 @@ export default function Automation() {
     clickup: false,
     slack: false
   });
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      setUserId(user.id);
+      
+      try {
+        const res = await fetch(`http://localhost:5000/api/clickup/status?profileId=${user.id}`);
+        const data = await res.json();
+        if (data.isConnected) {
+          setConnections(prev => ({ ...prev, clickup: true }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch ClickUp status", err);
+      }
+    };
+    fetchStatus();
+  }, []);
 
   const integrations = [
     { id: "github", name: "GitHub", desc: "Push scaffolded code directly to your repositories.", icon: Github },
@@ -33,19 +55,34 @@ export default function Automation() {
     { id: "slack", name: "Slack", desc: "Receive real-time notifications for architecture changes.", icon: Slack }
   ];
 
-  const handleToggle = (id: string) => {
+  const handleToggle = async (id: string) => {
+    if (id === "clickup" && !connections.clickup) {
+      if (!userId) {
+        toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Redirecting...", description: "Taking you to ClickUp to authorize." });
+      try {
+        const res = await fetch("http://localhost:5000/api/clickup/auth-url");
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to fetch auth URL.", variant: "destructive" });
+        return;
+      }
+    }
+
     const nextState = !connections[id as keyof typeof connections];
     setConnections(prev => ({ ...prev, [id]: nextState }));
     
-    if (nextState) {
-      toast({
-        title: `Connecting to ${id.charAt(0).toUpperCase() + id.slice(1)}`,
-        description: "Redirecting to authentication portal...",
-      });
-    } else {
+    if (!nextState && id === "clickup") {
+      // In a real app we'd also call a backend disconnect route
       toast({
         title: "Connection Severed",
-        description: `${id.charAt(0).toUpperCase() + id.slice(1)} disconnected successfully.`,
+        description: "ClickUp disconnected successfully.",
         variant: "destructive"
       });
     }

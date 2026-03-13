@@ -303,14 +303,102 @@ app.post("/api/push-to-github", async (req, res) => {
 });
 
 /**
+ * ClickUp OAuth Endpoints
+ */
+app.get("/api/clickup/auth-url", (req, res) => {
+  const clientId = process.env.CLICKUP_CLIENT_ID;
+  const redirectUri = process.env.CLICKUP_REDIRECT_URI || "http://localhost:5173/auth/clickup/callback";
+  
+  if (!clientId) {
+    return res.status(500).json({ error: "CLICKUP_CLIENT_ID not configured in backend." });
+  }
+
+  const authUrl = `https://app.clickup.com/api?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  res.json({ url: authUrl });
+});
+
+app.post("/api/clickup/callback", async (req, res) => {
+  try {
+    const { code, profileId } = req.body;
+    
+    if (!code || !profileId) {
+      return res.status(400).json({ error: "Authorization code and profileId are required" });
+    }
+
+    const clientId = process.env.CLICKUP_CLIENT_ID;
+    const clientSecret = process.env.CLICKUP_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: "ClickUp OAuth credentials not configured." });
+    }
+
+    // Exchange code for token
+    const tokenResponse = await fetch(`https://api.clickup.com/api/v2/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code
+      })
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      throw new Error(tokenData.err || "Failed to exchange token with ClickUp");
+    }
+
+    // Save token to Profile DB
+    await prisma.profile.update({
+      where: { id: profileId },
+      data: { clickupToken: tokenData.access_token }
+    });
+
+    res.json({ success: true, message: "ClickUp connected successfully!" });
+  } catch (error: any) {
+    console.error("ClickUp Callback Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/clickup/status", async (req, res) => {
+  try {
+    const { profileId } = req.query;
+    if (!profileId) return res.status(400).json({ error: "profileId required" });
+
+    const profile = await prisma.profile.findUnique({ where: { id: profileId as string } });
+    
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    res.json({ isConnected: !!profile.clickupToken });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Sync sprint to ClickUp
  */
 app.post("/api/sync-clickup", async (req, res) => {
   try {
+    const { projectId, profileId, sprint, listId } = req.body;
 
-    const { projectId, sprint } = req.body;
+    if (!profileId || !listId) {
+       return res.status(400).json({ error: "profileId and listId are required to sync to ClickUp" });
+    }
 
-    const result = await syncSprint(projectId, sprint);
+    const profile = await prisma.profile.findUnique({
+      where: { id: profileId }
+    });
+
+    if (!profile || !profile.clickupToken) {
+      return res.status(403).json({ error: "ClickUp is not connected for this user." });
+    }
+
+    const result = await syncSprint(listId, sprint, profile.clickupToken);
 
     res.json({ success: true, result });
 

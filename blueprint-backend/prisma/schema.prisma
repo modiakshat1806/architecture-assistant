@@ -8,13 +8,14 @@ datasource db {
 }
 
 model Profile {
-  id        String    @id @db.Uuid
-  email     String    @unique
-  name      String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @db.Uuid
+  email        String    @unique
+  name         String?
+  clickupToken String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   
-  projects  Project[]
+  projects     Project[]
 }
 
 model Project {
