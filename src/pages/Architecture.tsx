@@ -75,8 +75,12 @@ export default function Architecture() {
 
       // 2. If no local data, fallback to API
       if (!architectureData || !architectureData.nodes) {
-        const response = await fetch("http://localhost:5000/architecture");
-        if (response.ok) architectureData = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Architecture Missing",
+          description: "Run PRD analysis first."
+        });
+        return;
       }
 
       if (architectureData && architectureData.nodes?.length > 0) {

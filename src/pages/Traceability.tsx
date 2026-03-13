@@ -89,46 +89,55 @@ export default function Traceability() {
   const API_URL = "http://localhost:5000/traceability";
 
   const fetchGraphData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(false);
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("Sync Failed");
-      
-      const data = await response.json();
 
-      // PROTECTIVE MAPPING: Ensures every node is valid before state update
-      const validNodes = (data.nodes || [])
-        .filter((n: any) => n && n.position && typeof n.position.x === 'number')
-        .map((node: any) => ({
-          ...node,
-          type: 'trace', // Overwrite to use our custom node
-          data: {
-            ...node.data,
-            type: node.data?.type || 'default'
-          }
-        }));
+  try {
+    setLoading(true);
+    setError(false);
 
-      const validEdges = (data.edges || []).map((edge: any) => ({
-        ...edge,
-        animated: true,
-        style: edgeStyle,
-        markerEnd
-      }));
+    const raw = localStorage.getItem("blueprint_project_data");
 
-      setNodes(validNodes);
-      setEdges(validEdges);
-    } catch (err) {
-      setError(true);
-      toast({
-        variant: "destructive",
-        title: "Matrix Sync Error",
-        description: "Check if the backend is running on port 5000.",
-      });
-    } finally {
-      setLoading(false);
+    if (!raw) {
+      throw new Error("No project data");
     }
-  }, [toast, setNodes, setEdges]);
+
+    const data = JSON.parse(raw);
+    const trace = data.traceability || { nodes: [], edges: [] };
+
+    const validNodes = (trace.nodes || []).map((node: any, index: number) => ({
+      ...node,
+      type: "trace",
+      position: node.position || { x: index * 200, y: 100 },
+      data: {
+        ...node.data,
+        type: node.data?.type || "default"
+      }
+    }));
+
+    const validEdges = (trace.edges || []).map((edge: any) => ({
+      ...edge,
+      animated: true,
+      style: edgeStyle,
+      markerEnd
+    }));
+
+    setNodes(validNodes);
+    setEdges(validEdges);
+
+  } catch (err) {
+
+    setError(true);
+
+    toast({
+      variant: "destructive",
+      title: "Traceability Missing",
+      description: "Run PRD analysis first."
+    });
+
+  } finally {
+    setLoading(false);
+  }
+
+}, [toast, setNodes, setEdges]);
 
   useEffect(() => {
     fetchGraphData();
