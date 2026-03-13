@@ -4,7 +4,25 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast"; // <-- ADDED TOAST IMPORT
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Folder, 
+  FolderOpen, 
+  FileCode2, 
+  FileJson, 
+  FileText,
+  Copy,
+  Check,
+  Download,
+  Terminal,
+  Code2
+} from "lucide-react";
+import { codeToHtml } from "shiki";
+import JSZip from "jszip";
+
+// ======================================
+// CUSTOM ICONS & TYPES
+// ======================================
 const VSCodeIcon = ({ className }: { className?: string }) => (
   <svg 
     viewBox="0 0 24 24" 
@@ -15,24 +33,7 @@ const VSCodeIcon = ({ className }: { className?: string }) => (
     <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-5.58-4.312a1.495 1.495 0 0 0-1.819.021L.348 5.629a1.494 1.494 0 0 0-.14 2.112l4.636 5.25L.208 18.24a1.494 1.494 0 0 0 .14 2.112l.618.503a1.495 1.495 0 0 0 1.819.021l5.58-4.312 9.46 8.63a1.494 1.494 0 0 0 1.705.29l4.94-2.377A1.5 1.5 0 0 0 24 21.785V5.214a1.5 1.5 0 0 0-.85-1.352zM18 18.962l-4.59-4.183L18 12V18.962zM4.215 15.895l-2.057-2.33 2.057-2.33 1.151 1.151-1.151 1.151z" />
   </svg>
 );
-import { 
-  Folder, 
-  FolderOpen, 
-  FileCode2, 
-  FileJson, 
-  FileText,
-  Copy, 
-  Check, 
-  Download,
-  Terminal,
-  Code2
-} from "lucide-react";
-import { codeToHtml } from "shiki";
-import JSZip from "jszip";
 
-// ==========================================
-// 1. TYPES & INTERFACES
-// ==========================================
 interface CodeFile {
   path: string;
   name: string;
@@ -42,196 +43,106 @@ interface CodeFile {
   children?: CodeFile[];
 }
 
-// ==========================================
-// 2. MOCK DATA
-// ==========================================
-const mockFileTree: CodeFile[] = [
-  {
-    path: "/src", name: "src", type: "folder",
-    children: [
-      {
-        path: "/src/controllers", name: "controllers", type: "folder",
-        children: [
-          { path: "/src/controllers/auth.controller.ts", name: "auth.controller.ts", type: "file", language: "typescript", content: "export const login = async (req: Request, res: Response) => {\n  // TODO: Implement JWT generation\n  res.status(200).json({ token: 'mock-jwt-token' });\n};\n\nexport const register = async (req: Request, res: Response) => {\n  // TODO: Hash password and save to Users DB\n  res.status(201).json({ message: 'User created' });\n};" }
-        ]
-      },
-      {
-        path: "/src/routes", name: "routes", type: "folder",
-        children: [
-          { path: "/src/routes/auth.routes.ts", name: "auth.routes.ts", type: "file", language: "typescript", content: "import { Router } from 'express';\nimport { login, register } from '../controllers/auth.controller';\n\nconst router = Router();\n\nrouter.post('/login', login);\nrouter.post('/register', register);\n\nexport default router;" }
-        ]
-      },
-      { path: "/src/index.ts", name: "index.ts", type: "file", language: "typescript", content: "import express from 'express';\nimport authRoutes from './routes/auth.routes';\n\nconst app = express();\nconst PORT = process.env.PORT || 3000;\n\napp.use(express.json());\napp.use('/api/v1/auth', authRoutes);\n\napp.listen(PORT, () => {\n  console.log(`Server running on port ${PORT}`);\n});" }
-    ]
-  },
-  { path: "/package.json", name: "package.json", type: "file", language: "json", content: "{\n  \"name\": \"auth-service\",\n  \"version\": \"1.0.0\",\n  \"main\": \"src/index.ts\",\n  \"dependencies\": {\n    \"express\": \"^4.18.2\",\n    \"jsonwebtoken\": \"^9.0.0\"\n  }\n}" },
-  { path: "/Dockerfile", name: "Dockerfile", type: "file", language: "dockerfile", content: "FROM node:18-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nEXPOSE 3000\nCMD [\"npm\", \"start\"]" }
-];
-
 export default function CodeGenerator() {
   const { toast } = useToast();
 
-  const handleOpenVSCode = async () => {
-    try {
-      toast({
-        title: "Initializing Workspace",
-        description: "Connecting to local bridge server...",
-      });
-
-      // We send the entire file tree to the bridge server.
-      // The bridge server will handle folder selection (native), writing, and opening VS Code.
-      const response = await fetch('http://localhost:3001/scaffold-and-open', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          files: fileTree
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Bridge server not responding' }));
-        throw new Error(data.error || 'Failed to communicate with bridge server');
-      }
-
-      const data = await response.json();
-      toast({
-        title: "Success",
-        description: `Project scaffolded to ${data.path} and opened in VS Code!`,
-      });
-
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        title: "VS Code Integration Failed",
-        description: error.message || "Ensure the bridge server is running (npm run bridge).",
-        variant: "destructive",
-      });
-    }
-  };
-
-
-  const handleDownloadZip = async () => {
-    const zip = new JSZip();
-
-    const addFilesToZip = (files: CodeFile[], currentZip: JSZip) => {
-      files.forEach((file) => {
-        if (file.type === "folder" && file.children) {
-          const folder = currentZip.folder(file.name);
-          if (folder) addFilesToZip(file.children, folder);
-        } else if (file.type === "file") {
-          currentZip.file(file.name, file.content || "");
-        }
-      });
-    };
-
-    toast({
-      title: "Packaging Repository",
-      description: "Compressing generated microservices into a .zip file...",
-    });
-
-    try {
-      addFilesToZip(fileTree, zip);
-      const content = await zip.generateAsync({ type: "blob" });
-      
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(content);
-      link.download = "generated-project.zip";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "Success",
-        description: "Source code repository downloaded successfully.",
-      });
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: "Download Failed",
-        description: "There was an error generating the ZIP file.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // ==========================================
-  // 3. STATE MANAGEMENT
-  // ==========================================
   const [fileTree, setFileTree] = useState<CodeFile[]>([]);
   const [activeFile, setActiveFile] = useState<CodeFile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/src", "/src/routes", "/src/controllers"]));
-  
-  // Shiki specific state
-  const [highlightedHtml, setHighlightedHtml] = useState<string>("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [highlightedHtml, setHighlightedHtml] = useState("");
   const [isHighlighting, setIsHighlighting] = useState(false);
 
-  // --- INITIAL DATA FETCH ---
+  /*
+  ======================================
+  LOAD PIPELINE CODE STRUCTURE
+  ======================================
+  */
   useEffect(() => {
-    const fetchGeneratedCode = async () => {
-      setIsLoading(true);
-      try {
-        setTimeout(() => {
-          setFileTree(mockFileTree);
-          const firstFile = mockFileTree[0]?.children?.find(c => c.type === 'file') || mockFileTree[1];
-          setActiveFile(firstFile);
-          setIsLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error("Failed to fetch code:", error);
+    try {
+      const raw = localStorage.getItem("blueprint_project_data");
+      if (!raw) {
+        setIsLoading(false);
+        return;
       }
-    };
-    fetchGeneratedCode();
+
+      const data = JSON.parse(raw);
+      const codeStructure = data.codeStructure || [];
+
+      setFileTree(codeStructure);
+
+      const findFirstFile = (nodes: CodeFile[]): CodeFile | null => {
+        for (const n of nodes) {
+          if (n.type === "file") return n;
+          if (n.children) {
+            const f = findFirstFile(n.children);
+            if (f) return f;
+          }
+        }
+        return null;
+      };
+
+      const firstFile = findFirstFile(codeStructure);
+      if (firstFile) setActiveFile(firstFile);
+
+      setIsLoading(false);
+    } catch (err) {
+      console.error("Failed to load code structure:", err);
+      setIsLoading(false);
+    }
   }, []);
 
-  // --- SHIKI HIGHLIGHTING EFFECT ---
+  /*
+  ======================================
+  SHIKI HIGHLIGHTING
+  ======================================
+  */
   useEffect(() => {
     if (!activeFile?.content) {
       setHighlightedHtml("");
       return;
     }
 
-    let isMounted = true;
-    setIsHighlighting(true);
+    let mounted = true;
 
-    const highlightCode = async () => {
+    const highlight = async () => {
+      setIsHighlighting(true);
       try {
         const html = await codeToHtml(activeFile.content || "", {
           lang: activeFile.language || "typescript",
-          theme: "vitesse-dark", 
+          theme: "vitesse-dark"
         });
-        
-        if (isMounted) {
+
+        if (mounted) {
           setHighlightedHtml(html);
           setIsHighlighting(false);
         }
-      } catch (error) {
-        console.error("Error highlighting code:", error);
-        if (isMounted) {
-          setHighlightedHtml(`<pre><code>${activeFile.content}</code></pre>`);
+      } catch {
+        if (mounted) {
+          setHighlightedHtml(`<pre class="p-4 text-zinc-300 font-mono text-sm">${activeFile.content}</pre>`);
           setIsHighlighting(false);
         }
       }
     };
 
-    highlightCode();
+    highlight();
 
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [activeFile]);
 
-  // ==========================================
-  // 4. HELPER FUNCTIONS
-  // ==========================================
+  /*
+  ======================================
+  HELPERS & ACTIONS
+  ======================================
+  */
   const toggleFolder = (path: string) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(path)) newExpanded.delete(path);
-    else newExpanded.add(path);
-    setExpandedFolders(newExpanded);
+    const next = new Set(expandedFolders);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
+    setExpandedFolders(next);
   };
 
   const copyToClipboard = () => {
@@ -242,21 +153,69 @@ export default function CodeGenerator() {
   };
 
   const getFileIcon = (name: string) => {
-    if (name.endsWith('.ts') || name.endsWith('.js')) return <FileCode2 className="w-4 h-4 text-primary" />;
-    if (name.endsWith('.json')) return <FileJson className="w-4 h-4 text-yellow-400" />;
+    if (name.endsWith(".ts") || name.endsWith(".js") || name.endsWith(".tsx") || name.endsWith(".jsx"))
+      return <FileCode2 className="w-4 h-4 text-primary" />;
+    if (name.endsWith(".json"))
+      return <FileJson className="w-4 h-4 text-yellow-400" />;
     return <FileText className="w-4 h-4 text-zinc-400" />;
   };
 
-  const FileTreeNode = ({ node, depth = 0 }: { node: CodeFile; depth?: number }) => {
+  // ZIP Generation Logic
+  const downloadZip = async () => {
+    if (fileTree.length === 0) {
+      toast({ title: "Error", description: "No code to download.", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Preparing ZIP", description: "Zipping your codebase..." });
+    
+    const zip = new JSZip();
+
+    // Recursive function to add folders and files to JSZip
+    const addFilesToZip = (nodes: CodeFile[], currentFolder: JSZip) => {
+      nodes.forEach(node => {
+        if (node.type === 'folder' && node.children) {
+          const newFolder = currentFolder.folder(node.name);
+          if (newFolder) addFilesToZip(node.children, newFolder);
+        } else if (node.type === 'file' && node.content) {
+          currentFolder.file(node.name, node.content);
+        }
+      });
+    };
+
+    addFilesToZip(fileTree, zip);
+
+    try {
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "blueprint-generated-code.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast({ title: "Success", description: "Code downloaded successfully!" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Export Failed", description: "Failed to generate ZIP file.", variant: "destructive" });
+    }
+  };
+
+  /*
+  ======================================
+  FILE TREE NODE COMPONENT
+  ======================================
+  */
+  const FileTreeNode = ({ node, depth = 0 }: { node: CodeFile; depth?: number; }) => {
     const isExpanded = expandedFolders.has(node.path);
     const isSelected = activeFile?.path === node.path;
 
     if (node.type === "folder") {
       return (
-        <div className="select-none">
-          <div 
-            className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 rounded-md cursor-pointer text-sm text-zinc-300 transition-colors"
-            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        <div>
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800 rounded-md cursor-pointer text-sm text-zinc-300"
+            style={{ paddingLeft: depth * 12 + 8 }}
             onClick={() => toggleFolder(node.path)}
           >
             {isExpanded ? <FolderOpen className="w-4 h-4 text-primary" /> : <Folder className="w-4 h-4 text-primary/70" />}
@@ -264,7 +223,9 @@ export default function CodeGenerator() {
           </div>
           {isExpanded && node.children && (
             <div>
-              {node.children.map(child => <FileTreeNode key={child.path} node={child} depth={depth + 1} />)}
+              {node.children.map(child => (
+                <FileTreeNode key={child.path} node={child} depth={depth + 1} />
+              ))}
             </div>
           )}
         </div>
@@ -272,11 +233,10 @@ export default function CodeGenerator() {
     }
 
     return (
-      <div 
-        className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors
-          ${isSelected ? "bg-primary/10 text-primary" : "hover:bg-zinc-800/50 text-zinc-400"}
-        `}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      <div
+        className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer text-sm rounded-md transition-colors
+        ${isSelected ? "bg-primary/10 text-primary font-medium" : "hover:bg-zinc-800 text-zinc-400"}`}
+        style={{ paddingLeft: depth * 12 + 8 }}
         onClick={() => setActiveFile(node)}
       >
         {getFileIcon(node.name)}
@@ -285,111 +245,98 @@ export default function CodeGenerator() {
     );
   };
 
-  // ==========================================
-  // 5. UI RENDER
-  // ==========================================
+  /*
+  ======================================
+  UI
+  ======================================
+  */
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Code Scaffolding</h1>
-          <p className="text-zinc-400 mt-1">Review and download the generated boilerplate for your services.</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <Code2 className="w-8 h-8 text-primary" />
+            Code Scaffolding
+          </h1>
+          <p className="text-zinc-400 mt-1">Review the AI-generated backend structure and code stubs.</p>
         </div>
-        <div className="flex gap-3">
-          {/* UPDATED TO OPEN IN VSCODE */}
-          <Button 
-            variant="outline" 
-            className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2"
-            onClick={handleOpenVSCode}
-          >
-            <VSCodeIcon className="w-4 h-4" /> Open in VS Code
+
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2" onClick={() => toast({ title: "Opening StackBlitz", description: "Launching cloud dev environment..." })}>
+            <Terminal className="w-4 h-4" /> StackBlitz
           </Button>
 
-          {/* UPDATED ZIP DOWNLOAD BUTTON */}
-          <Button 
-            className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
-            onClick={handleDownloadZip}
-          >
-            <Download className="w-4 h-4" /> Download .ZIP
+          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2" onClick={() => toast({ title: "VS Code", description: "Exporting to local workspace..." })}>
+            <VSCodeIcon className="w-4 h-4" /> VS Code
+          </Button>
+
+          <Button onClick={downloadZip} className="bg-primary hover:brightness-110 text-white gap-2">
+            <Download className="w-4 h-4" /> Download ZIP
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-12rem)] min-h-[600px]">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-14rem)] min-h-[600px]">
         
-        {/* Left Panel: File Explorer */}
+        {/* Explorer */}
         <Card className="lg:col-span-1 bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden">
-          <CardHeader className="border-b border-zinc-800 pb-3 bg-zinc-950/50 px-4 pt-4">
-            <CardTitle className="text-white text-sm flex items-center gap-2 uppercase tracking-wider font-semibold">
+          <CardHeader className="border-b border-zinc-800 pb-3 bg-zinc-950/50">
+            <CardTitle className="text-sm flex items-center gap-2 text-zinc-300 uppercase tracking-wider font-bold">
               <Code2 className="w-4 h-4 text-primary" />
               Explorer
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-          {isLoading ? (
-            <div className="p-4 space-y-3">
-              <Skeleton className="h-4 w-[80%] bg-zinc-800" />
-              <Skeleton className="h-4 w-[60%] bg-zinc-800 ml-4" />
-              <Skeleton className="h-4 w-[70%] bg-zinc-800 ml-4" />
-              <Skeleton className="h-4 w-[50%] bg-zinc-800 ml-8" />
-            </div>
-          ) : (
-            fileTree.map(node => <FileTreeNode key={node.path} node={node} />)
-          )}
+            {isLoading ? (
+              <div className="space-y-2 p-2">
+                <Skeleton className="h-5 w-full bg-zinc-800" />
+                <Skeleton className="h-5 w-5/6 bg-zinc-800" />
+                <Skeleton className="h-5 w-4/6 bg-zinc-800" />
+              </div>
+            ) : fileTree.length > 0 ? (
+              fileTree.map(n => <FileTreeNode key={n.path} node={n} />)
+            ) : (
+              <div className="p-4 text-center text-sm text-zinc-500">
+                No code structure generated yet.
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Right Panel: Shiki Viewer */}
-        <Card className="lg:col-span-3 bg-[#121212] border-zinc-800 flex flex-col overflow-hidden relative">
-          {/* Editor Header */}
-          <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-4 py-2 relative z-20">
-            <div className="flex items-center gap-2">
+        {/* Code Viewer */}
+        <Card className="lg:col-span-3 bg-[#121212] border-zinc-800 flex flex-col overflow-hidden">
+          <CardHeader className="flex flex-row justify-between items-center border-b border-zinc-800 pb-3 bg-zinc-950/80">
+            <div className="flex gap-2 items-center">
               {activeFile && getFileIcon(activeFile.name)}
-              <span className="text-sm font-mono text-zinc-300">
-                {activeFile ? activeFile.path : "Select a file"}
+              <span className="font-mono text-sm text-zinc-300">
+                {activeFile?.path || "No file selected"}
               </span>
             </div>
-            {activeFile && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={copyToClipboard}
-                className="text-zinc-400 hover:text-white h-8"
-              >
-                {copied ? <Check className="w-4 h-4 text-green-500 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                {copied ? "Copied!" : "Copy Code"}
+            {activeFile?.content && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-white" onClick={copyToClipboard}>
+                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </Button>
             )}
-          </div>
+          </CardHeader>
 
-          {/* Editor Content Area */}
-          <CardContent className="flex-1 overflow-hidden p-0 relative group">
-            {isLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-sm">
-                Generating source code...
+          <CardContent className="flex-1 p-0 overflow-auto custom-scrollbar bg-[#121212]">
+            {isHighlighting ? (
+              <div className="flex items-center justify-center h-full text-zinc-500 gap-2">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Highlighting code...
               </div>
-            ) : !activeFile ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
-                <FileCode2 className="w-12 h-12 mb-4 opacity-20" />
-                <p>Select a file to view its contents</p>
-              </div>
+            ) : activeFile?.content ? (
+              <div
+                className="text-sm font-mono p-4 [&>pre]:!bg-transparent"
+                dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+              />
             ) : (
-              <div className="relative h-full w-full">
-                {/* Shiki sets a background color on its <pre> tag. The Tailwind arbitary variants here override it so it matches our card background smoothly */}
-                <div 
-                  className={`
-                    h-full w-full overflow-auto text-sm font-mono custom-scrollbar
-                    [&>pre]:!bg-transparent [&>pre]:p-6 [&>pre]:m-0
-                    transition-opacity duration-300
-                    ${isHighlighting ? "opacity-30" : "opacity-100"}
-                  `}
-                  dangerouslySetInnerHTML={{ __html: highlightedHtml }} 
-                />
+              <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
+                Select a file to view its contents
               </div>
             )}
           </CardContent>
         </Card>
-
       </div>
     </DashboardLayout>
   );

@@ -129,7 +129,6 @@ export default function PRDUpload() {
   PROCESS PRD
   ==========================
   */
-
   const handleProcess = async () => {
 
     if (!file) return;
@@ -140,7 +139,6 @@ export default function PRDUpload() {
     localStorage.removeItem("blueprint_project_data");
 
     try {
-
       const { data } = await supabase.auth.getUser();
       const user = data.user;
 
@@ -153,6 +151,8 @@ export default function PRDUpload() {
       formData.append("prd", file);
       formData.append("profileId", user.id);
       formData.append("projectName", projectName);
+      // ---> ADDED LINE HERE <---
+      formData.append("email", user.email || "");
 
       const response = await fetch(
         "http://localhost:5000/api/prd/upload",
@@ -167,12 +167,10 @@ export default function PRDUpload() {
       }
 
       const result = await response.json();
-      localStorage.setItem("projectId", result.projectId)
 
       const rawData = result?.data ?? {};
 
       const safeData = {
-
         projectName:
           projectName !== "Untitled Project"
             ? projectName
@@ -208,19 +206,14 @@ export default function PRDUpload() {
       navigate("/dashboard/analysis");
 
     } catch (err: any) {
-
       console.error("Upload error:", err);
-
       const message = err?.message || "Upload failed";
-
       setError(message);
-
       toast({
         variant: "destructive",
         title: "Upload Failed",
         description: message
       });
-
     } finally {
 
       setIsUploading(false);
@@ -272,11 +265,10 @@ export default function PRDUpload() {
 
           <Card
             className={`bg-zinc-900 border-2 border-dashed p-16 text-center
-            ${
-              isDragging
+            ${isDragging
                 ? "border-primary bg-primary/10"
                 : "border-zinc-700"
-            }`}
+              }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}

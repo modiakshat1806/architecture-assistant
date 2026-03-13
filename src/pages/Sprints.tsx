@@ -1,14 +1,25 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+// src/pages/Sprints.tsx
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Plus, Filter, Search, MoreHorizontal, Clock, CheckCircle2,
-  CircleDashed, GripVertical, BookOpen, Loader2, RefreshCcw, AlertCircle,
+  ArrowRight,
+  Plus,
+  Filter,
+  Search,
+  MoreHorizontal,
+  Clock,
+  CheckCircle2,
+  CircleDashed,
+  GripVertical,
+  BookOpen,
+  RefreshCcw,
   X,
-  Edit2
+  ListTodo
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,13 +37,50 @@ interface Task {
 }
 
 export default function Sprints() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
+  // --- DATA LOADING ---
+  useEffect(() => {
+    const raw = localStorage.getItem("blueprint_project_data");
+    if (!raw) return;
+    
+    try {
+      const data = JSON.parse(raw);
+      const aiTasks = data.tasks || [];
+      const aiStories = data.stories || [];
+
+      // Map AI tasks to the Kanban board structure
+      const formattedTasks = aiTasks.map((t: any, i: number) => {
+        // Find the parent user story for context
+        const parentStory = aiStories.find((s: any) => s.id === t.storyId);
+
+        return {
+          id: t.id || t.taskId || `TSK-${i + 1}`,
+          title: t.title || t.name || t.task || "Untitled Task",
+          status: t.status || 'todo', // Default everything to the first column
+          priority: t.priority || 'Medium',
+          type: t.type || 'Backend',
+          points: t.points || t.storyPoints || 3,
+          story: parentStory ? (parentStory.title || parentStory.name) : "General Architecture",
+          // Mock assignees for UI aesthetics
+          assignee: t.assignee || ['Alex', 'Sarah', 'Mike', 'David'][i % 4] 
+        };
+      });
+
+      setTasks(formattedTasks);
+    } catch (e) {
+      console.error("Error loading task data", e);
+    }
+  }, []);
+
+  // --- FILTERING ---
   const filteredTasks = useMemo(() => {
     if (!searchQuery) return tasks;
     const query = searchQuery.toLowerCase();
@@ -45,87 +93,61 @@ export default function Sprints() {
     );
   }, [tasks, searchQuery]);
 
-  const { toast } = useToast();
-
-  // UPDATED PORT TO 5000
-  const API_URL = "http://localhost:5000/tasks";
-
-  // --- API ACTIONS ---
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(false);
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("Server responded with error");
-      const data = await response.json();
-      setTasks(data);
-    } catch (err) {
-      setError(true);
-      toast({
-        variant: "destructive",
-        title: "Sync Error",
-        description: "Could not connect to the backend. Is the server running on port 5000?",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  const updateTaskStatus = async (taskId: string, newStatus: string) => {
-    try {
-      // Optimistic UI Update
-      const originalTasks = [...tasks];
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-
-      const response = await fetch(`${API_URL}/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update task");
-
-      toast({ title: "Live Sync", description: `Task ${taskId} updated to ${newStatus}` });
-    } catch (err) {
-      fetchTasks(); // Rollback to server state if it fails
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: "Changes could not be saved to the database.",
-      });
-    }
+  // --- DRAG AND DROP HANDLERS ---
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  // --- DRAG & DROP HANDLERS ---
-
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedTaskId(id);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDrop = (e: React.DragEvent, status: string) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (draggedTaskId) {
-      updateTaskStatus(draggedTaskId, status);
-      setDraggedTaskId(null);
-    }
-  };
+    setIsDragging(true);
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
+    setIsDragging(false);
+  }, []);
 
+  const handleDrop = useCallback((e: React.DragEvent, newStatus: string) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!draggedTaskId) return;
+
+    // Update local state instantly for UI
+    setTasks(prev => prev.map(t => t.id === draggedTaskId ? { ...t, status: newStatus } : t));
+    setDraggedTaskId(null);
+    
+  }, [draggedTaskId]);
+
+  // --- UTILITY FUNCTIONS ---
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High": return "text-red-400 bg-red-500/10 border-red-500/20";
-      case "Medium": return "text-amber-400 bg-amber-500/10 border-amber-500/20";
-      default: return "text-primary bg-primary/10 border-primary/20";
+    switch (priority?.toLowerCase()) {
+      case "high": 
+      case "critical": return "text-red-400 bg-red-500/10 border-red-500/20";
+      case "medium": return "text-amber-400 bg-amber-500/10 border-amber-500/20";
+      default: return "text-green-400 bg-green-500/10 border-green-500/20";
+    }
+  };
+
+  const syncToClickUp = async () => {
+    try {
+      toast({ title: "Syncing...", description: "Pushing tasks to ClickUp sprint board." });
+      const response = await fetch("http://localhost:5000/api/sync-clickup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: "demo-project-123",
+          sprint: { name: "Sprint 1", tasks: tasks.map(t => t.id) }
+        })
+      });
+      if (!response.ok) throw new Error("Sync failed");
+      toast({ title: "Synced", description: "Tasks successfully pushed to ClickUp." });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Sync Failed",
+        description: "Could not sync to ClickUp. Ensure backend is running."
+      });
     }
   };
 
@@ -137,20 +159,19 @@ export default function Sprints() {
       onDragStart={(e) => handleDragStart(e, task.id)}
       className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-all cursor-grab active:cursor-grabbing mb-3 group relative overflow-hidden"
     >
-      <div className={`absolute left-0 top-0 bottom-0 w-1 ${task.type === 'Infrastructure' ? 'bg-purple-500' : task.type === 'Security' ? 'bg-red-500' : 'bg-blue-500'}`} />
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${task.type?.toLowerCase() === 'infrastructure' ? 'bg-purple-500' : task.type?.toLowerCase() === 'frontend' ? 'bg-blue-500' : 'bg-orange-500'}`} />
       <CardContent className="p-4 pl-5">
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2">
             <GripVertical className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="text-xs font-mono text-zinc-500">{task.id}</span>
           </div>
-          {/* WIRED UP 3-DOTS BUTTON HERE */}
           <Button
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-zinc-500 hover:text-white -mr-2 -mt-2"
             onClick={(e) => {
-              e.stopPropagation(); // Prevents dragging when clicking the button
+              e.stopPropagation();
               toast({ title: "Task Options", description: `Opening settings for ${task.id}...` });
             }}
           >
@@ -158,69 +179,43 @@ export default function Sprints() {
           </Button>
         </div>
         <h3 className="text-sm font-medium text-white mb-2 leading-snug">{task.title}</h3>
-
-        {/* Story Linkage */}
-        <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-4 bg-zinc-950 w-fit px-2 py-1 rounded border border-zinc-800/80">
-          <BookOpen className="w-3 h-3 text-blue-400" />
-          {task.story}
+        <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-4 bg-zinc-950 w-fit px-2 py-1 rounded border border-zinc-800/80 line-clamp-1 max-w-full">
+          <BookOpen className="w-3 h-3 text-blue-400 shrink-0" />
+          <span className="truncate">{task.story}</span>
         </div>
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-zinc-800/50">
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
             {task.priority}
           </span>
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary">
+            <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
               {task.points}
             </div>
             <Avatar className="w-6 h-6 border border-zinc-700">
               <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignee}`} />
-              <AvatarFallback>{task.assignee.substring(0, 1)}</AvatarFallback>
+              <AvatarFallback>{task.assignee?.substring(0, 1) || 'U'}</AvatarFallback>
             </Avatar>
           </div>
         </div>
       </CardContent>
     </Card>
   );
-  const syncToClickUp = async () => {
-    try {
-      toast({ title: "Syncing...", description: "Pushing tasks to ClickUp sprint board." });
 
-      const response = await fetch("http://localhost:5000/api/sync-clickup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Passing a mock listId and grouping tasks into a "Sprint" payload [cite: 484]
-        body: JSON.stringify({
-          listId: "demo-list-123",
-          sprint: { name: "Sprint 1", tasks: tasks.map(t => t.id) }
-        })
-      });
-
-      if (!response.ok) throw new Error("Sync failed");
-
-      toast({
-        title: "Sync Successful",
-        description: "Tasks are now live in your external project manager.",
-      });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Sync Failed", description: "Check your API keys." });
-    }
-  };
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Tasks & Sprint Planner</h1>
-          <p className="text-zinc-400 mt-1">Real-time board synced with engineering backend.</p>
+          <p className="text-zinc-400 mt-1">Real-time board synced with your PRD analysis.</p>
         </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
-            className="bg-zinc-950 border-zinc-700 text-zinc-400 hover:text-white gap-2"
+            className={`gap-2 transition-colors ${isFilterOpen ? 'bg-zinc-800 text-white border-zinc-600' : 'bg-zinc-950 border-zinc-700 text-zinc-400 hover:text-white'}`}
             onClick={() => setIsFilterOpen(!isFilterOpen)}
           >
             <Filter className="w-4 h-4" /> {isFilterOpen ? "Hide Filters" : "Filter"}
           </Button>
-
           <Button
             variant="outline"
             className="bg-zinc-950 border-blue-500/30 text-blue-400 hover:bg-blue-500/10 gap-2"
@@ -228,12 +223,11 @@ export default function Sprints() {
           >
             <RefreshCcw className="w-4 h-4" /> Push to ClickUp
           </Button>
-
           <Button
-            className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
-            onClick={() => toast({ title: "Create Task", description: "Opening manual task creation modal..." })}
+            className="bg-primary hover:brightness-110 text-primary-foreground gap-2 shadow-[0_0_15px_-3px_rgba(249,115,22,0.4)]"
+            onClick={() => navigate('/dashboard/architecture')}
           >
-            <Plus className="w-4 h-4" /> New Task
+            View Architecture <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -255,8 +249,8 @@ export default function Sprints() {
                 <Badge
                   key={p}
                   variant="outline"
-                  className={`cursor-pointer hover:bg-zinc-800 ${searchQuery === p ? 'bg-primary/20 border-primary text-primary' : 'bg-zinc-950 text-zinc-400'}`}
-                  onClick={() => setSearchQuery(searchQuery === p ? "" : p)}
+                  className={`cursor-pointer hover:bg-zinc-800 ${searchQuery.toLowerCase() === p.toLowerCase() ? 'bg-primary/20 border-primary text-primary' : 'bg-zinc-950 text-zinc-400'}`}
+                  onClick={() => setSearchQuery(searchQuery.toLowerCase() === p.toLowerCase() ? "" : p)}
                 >
                   {p}
                 </Badge>
@@ -277,18 +271,12 @@ export default function Sprints() {
             <TabsTrigger value="board" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">Board</TabsTrigger>
             <TabsTrigger value="list" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">List</TabsTrigger>
           </TabsList>
-
-          <div className="relative w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
-            <Input
-              placeholder="Search tasks..."
-              className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-primary"
-            />
-          </div>
         </div>
 
         <TabsContent value="board" className="m-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-16rem)] min-h-[500px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-16rem)] min-h-[600px]">
+            
+            {/* TO DO COLUMN */}
             <div
               className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
               onDragOver={handleDragOver}
@@ -300,7 +288,7 @@ export default function Sprints() {
                   To Do
                 </h2>
                 <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
-                  {tasks.filter(t => t.status === 'todo').length}
+                  {filteredTasks.filter(t => t.status === 'todo').length}
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
@@ -313,6 +301,7 @@ export default function Sprints() {
               </div>
             </div>
 
+            {/* IN PROGRESS COLUMN */}
             <div
               className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
               onDragOver={handleDragOver}
@@ -337,6 +326,7 @@ export default function Sprints() {
               </div>
             </div>
 
+            {/* DONE COLUMN */}
             <div
               className="flex flex-col bg-zinc-950/50 rounded-xl border border-zinc-800/50 p-4"
               onDragOver={handleDragOver}
@@ -360,14 +350,19 @@ export default function Sprints() {
                 )}
               </div>
             </div>
+
           </div>
         </TabsContent>
 
         <TabsContent value="list" className="m-0">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="p-0">
-              <div className="text-center py-12 text-zinc-500">
-                List view placeholder. The Kanban board is where the action is!
+              <div className="text-center py-20 text-zinc-500 flex flex-col items-center">
+                <ListTodo className="w-12 h-12 text-zinc-700 mb-4" />
+                <p>List view is currently in development.</p>
+                <Button variant="link" className="text-primary mt-2" onClick={() => document.querySelector<HTMLButtonElement>('[value="board"]')?.click()}>
+                  Return to Board
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -1,285 +1,314 @@
-
-import { useState, useEffect, useRef } from "react"
-import DashboardLayout from "@/components/layout/DashboardLayout"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Send, Bot, AlertCircle } from "lucide-react"
+// src/pages/Chat.tsx
+import { useState, useRef, useEffect } from "react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Send, Bot, AlertCircle } from "lucide-react";
 
 type Message = {
-  id: string
-  role: "ai" | "user"
-  content: string
-  timestamp: string
-}
-
-
-type Clarification = {
-  id: string
-  question: string
-  options: string[]
-}
+  id: string;
+  role: "ai" | "user";
+  content: string;
+  timestamp: string;
+};
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [inputValue, setInputValue] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
 
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
 
-  
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-
-const [questions, setQuestions] = useState<Clarification[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-
-  const projectId = localStorage.getItem("projectId")
+  /*
+  ===============================
+  Load clarifications from pipeline
+  ===============================
+  */
 
   useEffect(() => {
+
+    const raw = localStorage.getItem("blueprint_project_data");
+
+    if (!raw) return;
+
+    const data = JSON.parse(raw);
+
+    const clarifications = data.clarifications || [];
+
+    const aiMessages: Message[] = clarifications.map((q: any, i: number) => ({
+      id: "ai-" + i,
+      role: "ai",
+      content: q.question || q,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    }));
+
+    setMessages(aiMessages);
+
+  }, []);
+
+  /*
+  ===============================
+  Auto scroll
+  ===============================
+  */
+
+  useEffect(() => {
+
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, isTyping])
 
-  useEffect(() => {
-    if (!projectId) {
-      return
-    }
+  }, [messages, isTyping]);
 
-    const loadQuestions = async () => {
-      try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/${projectId}/clarifications`
-        )
+  /*
+  ===============================
+  Send message
+  ===============================
+  */
 
-        if (!res.ok) {
-          throw new Error(`Failed to load clarifications: ${res.status}`)
-        }
+  const handleSendMessage = async (e?: React.FormEvent) => {
 
-        const data = await res.json()
+    e?.preventDefault();
 
-        let list: Clarification[] = []
-
-        if (Array.isArray(data)) {
-          list = data
-        } else if (Array.isArray(data?.questions)) {
-          list = data.questions
-        } else {
-          list = []
-        }
-
-        setQuestions(list)
-
-        if (list.length > 0) {
-          setMessages([
-            {
-              id: Date.now().toString(),
-              role: "ai",
-              content: list[0].question,
-              timestamp: "Now",
-            },
-          ])
-        }
-      } catch (err) {
-        console.error(err)
-      }
-    }
-
-    loadQuestions()
-  }, [projectId])
-
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!inputValue.trim()) return
-
-    await submitAnswer(inputValue)
-  }
-
-  const submitAnswer = async (answer: string) => {
-    if (!answer.trim()) return
+    if (!inputValue.trim()) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: answer,
-      timestamp: new Date().toLocaleTimeString(),
-    }
+      content: inputValue,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    };
 
-    setMessages((prev) => [...prev, userMsg])
-
-    const current = questions[currentIndex]
-    if (!current) {
-      return
-    }
-
-    const question = current.question
-
-    setInputValue("")
-    setIsTyping(true)
+    setMessages((prev) => [...prev, userMsg]);
+    setInputValue("");
+    setIsTyping(true);
 
     try {
-      if (projectId) {
-        await fetch(
-          `http://localhost:5000/api/projects/${projectId}/clarifications`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              question,
-              answer,
-            }),
-          }
-        )
-      }
 
-      const next = currentIndex + 1
+      const raw = localStorage.getItem("blueprint_project_data");
 
-      if (next < questions.length) {
-        setCurrentIndex(next)
+      const context = raw ? JSON.parse(raw) : {};
 
-        const aiMsg: Message = {
-          id: Date.now().toString() + "-ai",
-          role: "ai",
-          content: questions[next].question,
-          timestamp: "Now",
-        }
+      const response = await fetch("http://localhost:5000/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: userMsg.content,
+          context
+        })
+      });
 
-        setMessages((prev) => [...prev, aiMsg])
-      } else {
-        const aiMsg: Message = {
-          id: Date.now().toString() + "-done",
-          role: "ai",
-          content: "All clarification questions are completed.",
-          timestamp: "Now",
-        }
+      const data = await response.json();
 
-        setMessages((prev) => [...prev, aiMsg])
-      }
+      const aiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: data.reply || "AI response unavailable.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+
     } catch (err) {
-      console.error(err)
+
+      const fallbackMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: "⚠️ Backend unavailable or API key exhausted.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      };
+
+      setMessages((prev) => [...prev, fallbackMsg]);
+
     }
 
-    setIsTyping(false)
-  }
+    setIsTyping(false);
+
+  };
 
   const currentOptions = questions[currentIndex]?.options || []
 
   return (
+
     <DashboardLayout>
+
       <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto gap-4">
 
+        {/* HEADER */}
+
         <div>
-          <h1 className="text-3xl font-bold text-white">PRD Clarification</h1>
+
+          <h1 className="text-3xl font-bold text-white tracking-tight">
+            PRD Clarification
+          </h1>
+
           <p className="text-zinc-400 mt-1 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500" />
-            {questions.length > 0
-               ? `Question ${currentIndex + 1} of ${questions.length}`
-               : "No clarification questions"}
+            Resolve ambiguities detected in the PRD
           </p>
+
         </div>
 
-        <Card className="flex-1 flex flex-col bg-zinc-900/95 border-zinc-800 shadow-[0_0_0_1px_rgba(251,146,60,0.08),0_20px_45px_rgba(0,0,0,0.35)]">
+        {/* CHAT CARD */}
 
-          <CardHeader className="border-b border-zinc-800">
-            <CardTitle className="text-white flex items-center gap-2">
-              <Bot className="w-5 h-5" />
+        <Card className="flex-1 flex flex-col bg-zinc-900 border-zinc-800 overflow-hidden">
+
+          <CardHeader className="border-b border-zinc-800 bg-zinc-950/50">
+
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Bot className="w-5 h-5 text-primary" />
               Blueprint AI Architect
             </CardTitle>
+
           </CardHeader>
+
+          {/* MESSAGES */}
 
           <CardContent
             ref={scrollRef}
             className="flex-1 overflow-y-auto p-6 space-y-6"
           >
+
             {messages.map((msg) => (
+
               <div
                 key={msg.id}
-                className={`flex gap-3 ${
-                  msg.role === "user" ? "justify-end" : ""
-                }`}
+                className={`flex gap-4 max-w-[85%] ${msg.role === "user"
+                    ? "ml-auto flex-row-reverse"
+                    : ""
+                  }`}
               >
-                <Avatar>
-                  {msg.role === "ai" ? (
-                    <AvatarFallback className="bg-orange-500 text-white font-semibold">
-                      B
-                    </AvatarFallback>
-                  ) : (
-                    <>
-                      <AvatarImage src="https://github.com/shadcn.png" />
-                      <AvatarFallback>U</AvatarFallback>
-                    </>
-                  )}
+
+                <Avatar className="w-8 h-8 border border-zinc-700">
+
+                  {msg.role === "ai"
+                    ? <Bot className="w-5 h-5 m-auto text-primary" />
+                    : <AvatarImage src="https://github.com/shadcn.png" />}
+
+                  <AvatarFallback>
+                    {msg.role === "ai" ? "AI" : "U"}
+                  </AvatarFallback>
+
                 </Avatar>
 
                 <div
-                  className={`px-4 py-3 rounded-xl text-sm max-w-[78%] border ${
-                    msg.role === "user"
-                      ? "bg-orange-500 text-white border-orange-400/60"
-                      : "bg-zinc-800 text-white border-zinc-700"
-                  }`}
+                  className={`flex flex-col ${msg.role === "user"
+                      ? "items-end"
+                      : "items-start"
+                    }`}
                 >
-                  {msg.content}
+
+                  <div
+                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed
+                    ${msg.role === "user"
+                        ? "bg-primary text-white"
+                        : "bg-zinc-800 text-zinc-200 border border-zinc-700"
+                      }`}
+                  >
+                    {msg.content}
+                  </div>
+
+                  <span className="text-[10px] text-zinc-500 mt-1">
+                    {msg.timestamp}
+                  </span>
+
                 </div>
+
               </div>
+
             ))}
+
             {isTyping && (
-            <div className="flex gap-3">
-            <Avatar>
-            <Bot className="w-5 h-5 m-auto" />
-            </Avatar>
 
-            <div className="bg-zinc-800 px-4 py-3 rounded-xl text-sm text-white animate-pulse">
-            Thinking...
-            </div>
-            </div>
-          )}
+              <div className="flex gap-4">
 
-            {currentOptions.length > 0 && !isTyping && (
-              <div className="pt-2">
-                <p className="text-xs uppercase tracking-wide text-zinc-400 mb-2">
-                  Suggested answers
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {currentOptions.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => void submitAnswer(option)}
-                      className="px-3 py-2 rounded-lg border border-orange-500/40 bg-zinc-900 text-orange-300 hover:bg-orange-500 hover:text-white transition-colors text-sm"
-                    >
-                      {option}
-                    </button>
-                  ))}
+                <Avatar className="w-8 h-8 border border-zinc-700">
+                  <AvatarFallback>AI</AvatarFallback>
+                </Avatar>
+
+                <div className="bg-zinc-800 border border-zinc-700 px-4 py-3 rounded-xl text-zinc-400 text-sm">
+                  AI thinking...
                 </div>
+
               </div>
+
             )}
+
           </CardContent>
 
-          <div className="p-4 border-t border-zinc-800 bg-zinc-900/80">
-            <form onSubmit={sendMessage} className="flex gap-2">
+          {/* QUICK SUGGESTIONS */}
+
+          <div className="px-6 pb-2 pt-2 bg-zinc-900 flex flex-wrap gap-2">
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                handleChipClick("Let's implement a retry queue for webhook failures.")
+              }
+            >
+              Suggest: Add retry queue
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                handleChipClick("Stripe built-in retries are sufficient for MVP.")
+              }
+            >
+              Suggest: Use Stripe retries
+            </Button>
+
+          </div>
+
+          {/* INPUT */}
+
+          <div className="p-4 bg-zinc-950 border-t border-zinc-800">
+
+            <form
+              onSubmit={handleSendMessage}
+              className="relative flex items-center"
+            >
+
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Type your answer..."
-                className="border-zinc-700 bg-zinc-950/80 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-orange-500"
+                placeholder="Type your clarification..."
+                className="pr-12 bg-zinc-900 border-zinc-700 text-white"
               />
 
               <Button
                 type="submit"
-                disabled={!inputValue || isTyping}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                size="icon"
+                className="absolute right-1.5 h-9 w-9"
+                disabled={!inputValue.trim() || isTyping}
               >
                 <Send className="w-4 h-4" />
               </Button>
+
             </form>
+
           </div>
 
         </Card>
 
       </div>
+
     </DashboardLayout>
   )
 }
