@@ -80,10 +80,64 @@ const nodeTypes = { trace: TraceNode };
 const edgeStyle = { stroke: '#3f3f46', strokeWidth: 2 };
 const markerEnd = { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#3f3f46' };
 
+const initialNodes: any[] = [
+  { id: "feat-1", type: "trace", position: { x: 0, y: 100 }, data: { label: "User Authentication", type: "feature", badge: "FEAT-101" } },
+  { id: "story-1", type: "trace", position: { x: 300, y: 100 }, data: { label: "JWT Login Flow", type: "story", badge: "STORY-52" } },
+  { id: "task-1", type: "trace", position: { x: 600, y: 50 }, data: { label: "Setup Redis session store", type: "task", badge: "TASK-8" } },
+  { id: "task-2", type: "trace", position: { x: 600, y: 150 }, data: { label: "Implement refresh tokens", type: "task", badge: "TASK-9" } },
+];
+
+const initialEdges: any[] = [
+  { id: "e1-2", source: "feat-1", target: "story-1", animated: true, markerEnd },
+  { id: "e2-3", source: "story-1", target: "task-1", animated: true, markerEnd },
+  { id: "e2-4", source: "story-1", target: "task-2", animated: true, markerEnd },
+];
+
 export default function Traceability() {
   const { toast } = useToast();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [isReady, setIsReady] = useState(true);
+
+  const fetchGraphData = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      // 1. Try LocalStorage
+      const rawData = localStorage.getItem("blueprint_project_data");
+      if (rawData) {
+        const project = JSON.parse(rawData);
+        if (project.traceability && project.traceability.nodes) {
+          setNodes(project.traceability.nodes);
+          setEdges(project.traceability.edges || []);
+          setIsReady(true);
+          return;
+        }
+      }
+
+      // 2. Try Backend Fallback
+      const response = await fetch("http://localhost:5000/traceability");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.nodes) {
+          setNodes(data.nodes);
+          setEdges(data.edges || []);
+          setIsReady(true);
+        }
+      }
+    } catch (err) {
+      console.error("Traceability fetch error", err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [setNodes, setEdges]);
+
+  useEffect(() => {
+    fetchGraphData();
+  }, [fetchGraphData]);
 
   const handleExport = () => {
     const doc = new jsPDF();

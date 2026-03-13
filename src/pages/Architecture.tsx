@@ -13,7 +13,10 @@ import {
   CreditCard,
   ArrowRight,
   Download,
-  Code2
+  Code2,
+  Box,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import {
   ReactFlow,

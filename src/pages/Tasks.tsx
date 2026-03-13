@@ -1,5 +1,4 @@
-import { useState, useMemo } from "react";
-import { useEffect, useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,18 +17,73 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface TaskItem {
+  id: string;
+  title: string;
+  priority: string;
+  type: string;
+  points: number;
+}
+
+interface UserStory {
+  id: string;
+  title: string;
+  description: string;
+  totalPoints: number;
+  tasks: TaskItem[];
+}
+
+const DEFAULT_BACKLOG: UserStory[] = [
+  {
+    id: "STORY-101",
+    title: "User Authentication & Session Management",
+    description: "Implement a secure JWT-based authentication system with Redis session persistence.",
+    totalPoints: 18,
+    tasks: [
+      { id: "TASK-1", title: "Setup Redis session store connectivity", priority: "High", type: "Infrastructure", points: 5 },
+      { id: "TASK-2", title: "Implement JWT sign/verify logic", priority: "High", type: "Backend", points: 8 },
+      { id: "TASK-3", title: "Auth middleware for route protection", priority: "Medium", type: "Backend", points: 5 }
+    ]
+  },
+  {
+    id: "STORY-102",
+    title: "Real-time Dashboard Widgets",
+    description: "Create interactive live-updating widgets for the platform dashboard.",
+    totalPoints: 12,
+    tasks: [
+      { id: "TASK-4", title: "WebSocket gateway integration", priority: "Medium", type: "Backend", points: 8 },
+      { id: "TASK-5", title: "Frontend chart component reactive state", priority: "Low", type: "UI/UX", points: 4 }
+    ]
+  }
+];
+
 export default function Tasks() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [backlogStories, setBacklogStories] = useState<UserStory[]>(DEFAULT_BACKLOG);
+
+  useEffect(() => {
+    const rawData = localStorage.getItem("blueprint_project_data");
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        if (parsed.backlog) {
+          setBacklogStories(parsed.backlog);
+        }
+      } catch (e) {
+        console.error("Error loading backlog data", e);
+      }
+    }
+  }, []);
 
   const filteredStories = useMemo(() => {
-    if (!searchQuery) return BACKLOG_STORIES;
+    if (!searchQuery) return backlogStories;
     const query = searchQuery.toLowerCase();
 
-    return BACKLOG_STORIES.map(story => {
+    return backlogStories.map(story => {
       // Find tasks that match the search query (title, priority, id, or type)
       const filteredTasks = story.tasks.filter(task =>
         task.title.toLowerCase().includes(query) ||
@@ -50,13 +104,11 @@ export default function Tasks() {
         return {
           ...story,
           tasks: filteredTasks,
-          // Re-calculate points for the filtered view if we want to be precise, 
-          // or keep original points. Let's keep original for context.
         };
       }
       return null;
-    }).filter(Boolean) as typeof BACKLOG_STORIES;
-  }, [searchQuery]);
+    }).filter(Boolean) as UserStory[];
+  }, [searchQuery, backlogStories]);
 
   return (
     <DashboardLayout>
@@ -194,7 +246,14 @@ export default function Tasks() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/50 rounded-xl border-2 border-dashed border-zinc-800">
+            <AlertCircle className="w-12 h-12 text-zinc-700 mb-4" />
+            <h3 className="text-lg font-bold text-white mb-1">No tasks found</h3>
+            <p className="text-zinc-500 text-sm">Try adjusting your filters or search query.</p>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

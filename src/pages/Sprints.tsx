@@ -11,6 +11,7 @@ import {
   Edit2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 interface Task {
@@ -21,6 +22,7 @@ interface Task {
   type: string;
   points: number;
   story: string;
+  assignee: string;
 }
 
 export default function Sprints() {
@@ -28,6 +30,21 @@ export default function Sprints() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery) return tasks;
+    const query = searchQuery.toLowerCase();
+    return tasks.filter(task =>
+      task.id.toLowerCase().includes(query) ||
+      task.title.toLowerCase().includes(query) ||
+      task.priority.toLowerCase() === query ||
+      task.story.toLowerCase().includes(query) ||
+      task.type.toLowerCase().includes(query)
+    );
+  }, [tasks, searchQuery]);
+
   const { toast } = useToast();
 
   // UPDATED PORT TO 5000
@@ -102,18 +119,6 @@ export default function Sprints() {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = (e: React.DragEvent, status: string) => {
-    e.preventDefault();
-    if (!draggedTaskId) return;
-
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === draggedTaskId ? { ...task, status } : task
-      )
-    );
-    setDraggedTaskId(null);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -208,7 +213,14 @@ export default function Sprints() {
           <p className="text-zinc-400 mt-1">Real-time board synced with engineering backend.</p>
         </div>
         <div className="flex gap-3">
-          {/* WIRED UP FILTER BUTTON HERE */}
+          <Button
+            variant="outline"
+            className="bg-zinc-950 border-zinc-700 text-zinc-400 hover:text-white gap-2"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+          >
+            <Filter className="w-4 h-4" /> {isFilterOpen ? "Hide Filters" : "Filter"}
+          </Button>
+
           <Button
             variant="outline"
             className="bg-zinc-950 border-blue-500/30 text-blue-400 hover:bg-blue-500/10 gap-2"
@@ -216,7 +228,7 @@ export default function Sprints() {
           >
             <RefreshCcw className="w-4 h-4" /> Push to ClickUp
           </Button>
-          {/* WIRED UP NEW TASK BUTTON HERE */}
+
           <Button
             className="bg-primary hover:brightness-110 text-primary-foreground gap-2 glow-orange"
             onClick={() => toast({ title: "Create Task", description: "Opening manual task creation modal..." })}
@@ -292,10 +304,10 @@ export default function Sprints() {
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                {tasks.filter(t => t.status === 'todo').map(renderTaskCard)}
-                {tasks.filter(t => t.status === 'todo').length === 0 && (
+                {filteredTasks.filter(t => t.status === 'todo').map(renderTaskCard)}
+                {filteredTasks.filter(t => t.status === 'todo').length === 0 && (
                   <div className="h-24 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center text-sm text-zinc-600">
-                    Drop tasks here
+                    {searchQuery ? "No matching tasks" : "Drop tasks here"}
                   </div>
                 )}
               </div>
@@ -312,14 +324,14 @@ export default function Sprints() {
                   In Progress
                 </h2>
                 <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
-                  {tasks.filter(t => t.status === 'in-progress').length}
+                  {filteredTasks.filter(t => t.status === 'in-progress').length}
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                {tasks.filter(t => t.status === 'in-progress').map(renderTaskCard)}
-                {tasks.filter(t => t.status === 'in-progress').length === 0 && (
+                {filteredTasks.filter(t => t.status === 'in-progress').map(renderTaskCard)}
+                {filteredTasks.filter(t => t.status === 'in-progress').length === 0 && (
                   <div className="h-24 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center text-sm text-zinc-600">
-                    Drop tasks here
+                    {searchQuery ? "No matching tasks" : "Drop tasks here"}
                   </div>
                 )}
               </div>
@@ -336,14 +348,14 @@ export default function Sprints() {
                   Done
                 </h2>
                 <span className="text-xs font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">
-                  {tasks.filter(t => t.status === 'done').length}
+                  {filteredTasks.filter(t => t.status === 'done').length}
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                {tasks.filter(t => t.status === 'done').map(renderTaskCard)}
-                {tasks.filter(t => t.status === 'done').length === 0 && (
+                {filteredTasks.filter(t => t.status === 'done').map(renderTaskCard)}
+                {filteredTasks.filter(t => t.status === 'done').length === 0 && (
                   <div className="h-24 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center text-sm text-zinc-600">
-                    Drop tasks here
+                    {searchQuery ? "No matching tasks" : "Drop tasks here"}
                   </div>
                 )}
               </div>
