@@ -4,9 +4,20 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Github, Trello, Slack, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/lib/supabase";
+import { useSearchParams } from "react-router-dom";
 
 const ClickUpIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -20,11 +31,20 @@ const ClickUpIcon = ({ className }: { className?: string }) => (
 );
 
 export default function Automation() {
+  const backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const [searchParams] = useSearchParams();
   const [connections, setConnections] = useState({
-    github: true,
+    github: false,
     clickup: false,
     slack: false
   });
+  const [profileId, setProfileId] = useState<string>(localStorage.getItem("profileId") || "");
+  const [projectId, setProjectId] = useState<string>(localStorage.getItem("projectId") || "");
+  const [repos, setRepos] = useState<Array<{ fullName: string; owner: string; name: string }>>([]);
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [linkedRepo, setLinkedRepo] = useState<string>("");
+  const [newRepoName, setNewRepoName] = useState("");
+  const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
   const integrations = [
@@ -33,22 +53,217 @@ export default function Automation() {
     { id: "slack", name: "Slack", desc: "Receive real-time notifications for architecture changes.", icon: Slack }
   ];
 
+  const loadGitHubState = async (currentProfileId: string, currentProjectId: string) => {
+    if (!currentProfileId) {
+      setConnections((prev) => ({ ...prev, github: false }));
+      setRepos([]);
+      return;
+    }
+
+    try {
+      const connectionRes = await fetch(`${backendBase}/api/github/connection?profileId=${encodeURIComponent(currentProfileId)}`);
+      if (!connectionRes.ok) {
+        const err = await connectionRes.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to load GitHub connection state.");
+      }
+      const connectionData = await connectionRes.json();
+      const connected = Boolean(connectionData?.connected);
+
+      setConnections((prev) => ({ ...prev, github: connected }));
+
+      if (connected) {
+        const reposRes = await fetch(`${backendBase}/api/github/repos?profileId=${encodeURIComponent(currentProfileId)}`);
+        if (!reposRes.ok) {
+          const err = await reposRes.json().catch(() => ({}));
+          throw new Error(err?.error || "Failed to load repositories.");
+        }
+        const reposData = await reposRes.json();
+        const list = (reposData?.repos || []).map((r: any) => ({
+          fullName: r.fullName,
+          owner: r.owner,
+          name: r.name,
+        }));
+        setRepos(list);
+      } else {
+        setRepos([]);
+      }
+
+      if (currentProjectId) {
+        const mappingRes = await fetch(`${backendBase}/api/github/projects/${currentProjectId}/link-repo`);
+        const mappingData = await mappingRes.json();
+        const fullName = mappingData?.mapping?.fullName || "";
+        setLinkedRepo(fullName);
+        if (fullName) {
+          setSelectedRepo(fullName);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      setConnections((prev) => ({ ...prev, github: false }));
+      setRepos([]);
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      const queryProfileId = searchParams.get("profileId") || "";
+      const { data } = await supabase.auth.getUser();
+      const userId = data?.user?.id || "";
+      const storedProfileId = localStorage.getItem("profileId") || "";
+      const effectiveProfileId = queryProfileId || userId || storedProfileId;
+
+      if (effectiveProfileId) {
+        setProfileId(effectiveProfileId);
+        localStorage.setItem("profileId", effectiveProfileId);
+      }
+
+      await loadGitHubState(effectiveProfileId, projectId);
+    };
+
+    init();
+  }, [projectId, searchParams]);
+
+  const selectedRepoParts = useMemo(() => {
+    if (!selectedRepo.includes("/")) {
+      return { owner: "", repo: "" };
+    }
+    const [owner, repo] = selectedRepo.split("/");
+    return { owner, repo };
+  }, [selectedRepo]);
+
+  const connectGitHub = async () => {
+    if (!profileId) {
+      toast({
+        title: "Profile missing",
+        description: "Login required to connect GitHub.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const res = await fetch(`${backendBase}/api/github/oauth/start?profileId=${encodeURIComponent(profileId)}`);
+    const data = await res.json();
+
+    if (!res.ok || !data?.url) {
+      throw new Error(data?.error || "Failed to start GitHub OAuth flow.");
+    }
+
+    window.location.href = data.url;
+  };
+
+  const createRepo = async () => {
+    if (!newRepoName.trim()) {
+      throw new Error("Enter repository name first.");
+    }
+
+    const res = await fetch(`${backendBase}/api/github/repos/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId,
+        name: newRepoName.trim(),
+        isPrivate: true,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to create repository.");
+    }
+
+    const fullName = data?.repo?.fullName;
+    if (fullName) {
+      setSelectedRepo(fullName);
+      setNewRepoName("");
+    }
+
+    await loadGitHubState(profileId, projectId);
+  };
+
+  const linkRepo = async () => {
+    if (!projectId) {
+      throw new Error("Upload PRD first so projectId exists.");
+    }
+    if (!selectedRepoParts.owner || !selectedRepoParts.repo) {
+      throw new Error("Select a repository first.");
+    }
+
+    const res = await fetch(`${backendBase}/api/github/projects/${projectId}/link-repo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId,
+        owner: selectedRepoParts.owner,
+        repo: selectedRepoParts.repo,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to link repository.");
+    }
+
+    setLinkedRepo(data?.mapping?.fullName || `${selectedRepoParts.owner}/${selectedRepoParts.repo}`);
+  };
+
+  const pushProject = async () => {
+    if (!projectId) {
+      throw new Error("Upload PRD first so projectId exists.");
+    }
+
+    const raw = localStorage.getItem("generatedCodeFiles");
+    const files = raw ? JSON.parse(raw) : [];
+
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new Error("No generated files found. Open Code Generator once before pushing.");
+    }
+
+    const res = await fetch(`${backendBase}/api/github/projects/${projectId}/push`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        files,
+        commitMessage: "feat: sync project from blueprint dashboard",
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to push project.");
+    }
+
+    toast({
+      title: "Pushed to GitHub",
+      description: `Commit ${data?.commitSha || "created"}`,
+    });
+  };
+
   const handleToggle = (id: string) => {
     const nextState = !connections[id as keyof typeof connections];
-    setConnections(prev => ({ ...prev, [id]: nextState }));
-    
-    if (nextState) {
-      toast({
-        title: `Connecting to ${id.charAt(0).toUpperCase() + id.slice(1)}`,
-        description: "Redirecting to authentication portal...",
-      });
-    } else {
-      toast({
-        title: "Connection Severed",
-        description: `${id.charAt(0).toUpperCase() + id.slice(1)} disconnected successfully.`,
-        variant: "destructive"
-      });
+
+    if (id !== "github") {
+      setConnections(prev => ({ ...prev, [id]: nextState }));
+      return;
     }
+
+    if (!nextState) {
+      toast({
+        title: "GitHub stays connected",
+        description: "Disconnect flow is not enabled yet.",
+      });
+      return;
+    }
+    
+    setBusy(true);
+    connectGitHub()
+      .catch((error: any) => {
+        toast({
+          title: "GitHub connect failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      })
+      .finally(() => setBusy(false));
   };
 
   return (
@@ -76,7 +291,7 @@ export default function Automation() {
                   <Switch 
                     checked={isConnected} 
                     onCheckedChange={() => handleToggle(int.id)}
-                    className="data-[state=checked]:bg-primary"
+                    className="data-[state=checked]:bg-green-500"
                   />
                 </div>
                 <CardTitle className="text-white text-xl">{int.name}</CardTitle>
@@ -99,6 +314,70 @@ export default function Automation() {
                     <Badge variant="outline" className="text-[10px] uppercase border-primary/20 bg-primary/5 text-primary">Active</Badge>
                   )}
                 </div>
+
+                {int.id === "github" && (
+                  <div className="mt-4 space-y-3">
+                    <div className="text-xs text-zinc-500 break-all">projectId: {projectId || "(missing)"}</div>
+                    <div className="text-xs text-zinc-500 break-all">linked: {linkedRepo || "(not linked)"}</div>
+
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300">Select repository</Label>
+                      <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+                        <SelectTrigger className="bg-zinc-950 border-zinc-700 text-zinc-200">
+                          <SelectValue placeholder="Choose repo" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                          {repos.length === 0 && (
+                            <div className="px-2 py-2 text-xs text-zinc-400">No repositories found for this GitHub account.</div>
+                          )}
+                          {repos.map((repo) => (
+                            <SelectItem key={repo.fullName} value={repo.fullName}>
+                              {repo.fullName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="new repo name"
+                        value={newRepoName}
+                        onChange={(e) => setNewRepoName(e.target.value)}
+                        className="bg-zinc-950 border-zinc-700 text-zinc-100"
+                      />
+                      <Button disabled={busy || !connections.github} onClick={() => {
+                        setBusy(true);
+                        createRepo()
+                          .then(() => toast({ title: "Repository created" }))
+                          .catch((error: any) => toast({ title: "Create repo failed", description: error.message, variant: "destructive" }))
+                          .finally(() => setBusy(false));
+                      }}>
+                        Create
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button className="w-full" disabled={busy || !connections.github || !selectedRepo} onClick={() => {
+                        setBusy(true);
+                        linkRepo()
+                          .then(() => toast({ title: "Repository linked" }))
+                          .catch((error: any) => toast({ title: "Link failed", description: error.message, variant: "destructive" }))
+                          .finally(() => setBusy(false));
+                      }}>
+                        Link Repo
+                      </Button>
+                      <Button className="w-full" disabled={busy || !connections.github || !linkedRepo} onClick={() => {
+                        setBusy(true);
+                        pushProject()
+                          .catch((error: any) => toast({ title: "Push failed", description: error.message, variant: "destructive" }))
+                          .finally(() => setBusy(false));
+                      }}>
+                        Push
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
