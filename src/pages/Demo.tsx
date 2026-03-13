@@ -1,5 +1,5 @@
 // src/pages/Demo.tsx
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -7,7 +7,7 @@ import {
   Network, GitBranch, Code2, FlaskConical, TestTube, Zap,
   ArrowRight, CheckCircle2, CircleDashed, Clock, Folder, FileCode2, FileJson,
   GitMerge, FileText, Server, Database, Globe, BookOpen,
-  Lock, CreditCard, Github, Trello, Slack, AlertCircle, Layout, Menu
+  Lock, CreditCard, Github, Trello, Slack, AlertCircle, Layout, Menu, Search, X, Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { demoProject, demoAnalysis, demoChatMessages } from '@/data/demo/project';
@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import Testing from '@/pages/Testing';
-import { ReactFlow, Background, Controls, Handle, Position, MarkerType } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Handle, Position, MarkerType, useNodesState, useEdgesState } from '@xyflow/react';
 import JSZip from 'jszip';
 import { Download } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
@@ -399,36 +399,128 @@ function ArchitectureDemoPanel() {
 }
 
 const TraceNode = ({ data }: any) => {
-  const Icon = data.icon;
+  const isHighlighted = data.highlighted;
+  const isDimmed = data.dimmed;
+
+  const getColors = () => {
+    switch (data.type) {
+      case 'requirement': return "text-blue-400 bg-blue-500/10 border-blue-500/30";
+      case 'service': return "text-purple-400 bg-purple-500/10 border-purple-500/30";
+      case 'api': return "text-amber-400 bg-amber-500/10 border-amber-500/30";
+      case 'task': return "text-green-400 bg-green-500/10 border-green-500/30";
+      default: return "text-zinc-400 bg-zinc-900 border-zinc-800";
+    }
+  };
+
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-800 bg-zinc-950 w-56">
-      {data.type !== 'req' && <Handle type="target" position={Position.Left} className="w-2 h-2 bg-zinc-500 border-none" />}
-      <div className={cn("p-2 rounded-md", data.type === 'req' ? "text-blue-400 bg-blue-500/10" : data.type === 'srv' ? "text-primary bg-primary/10" : "text-green-400 bg-green-500/10")}>
-        <Icon className="w-5 h-5" />
+    <div className={`
+      flex items-center gap-3 p-3 rounded-lg border-2 transition-all duration-300 bg-zinc-950 w-56
+      ${isHighlighted ? "border-white ring-4 ring-white/10 scale-105" : "border-zinc-800 opacity-80"}
+      ${isDimmed ? "opacity-20 grayscale" : ""}
+    `}>
+      <Handle type="target" position={Position.Left} className="w-1.5 h-1.5 bg-zinc-600 border-none" />
+      <div className={cn("p-2 rounded-md", getColors())}>
+        <Network className="w-4 h-4" />
       </div>
-      <div className="flex flex-col">
-        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{data.badge}</span>
-        <span className="text-sm font-medium text-white leading-tight mt-0.5">{data.label}</span>
+      <div className="flex flex-col min-w-0">
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{data.badge}</span>
+        <span className="text-sm font-medium text-white leading-tight mt-0.5 truncate">{data.label}</span>
       </div>
-      {data.type !== 'tsk' && <Handle type="source" position={Position.Right} className="w-2 h-2 bg-zinc-500 border-none" />}
+      <Handle type="source" position={Position.Right} className="w-1.5 h-1.5 bg-zinc-600 border-none" />
     </div>
   );
 };
-const traceNodes = [
-  { id: "r1", type: "trace", position: { x: 50, y: 100 }, data: { label: "User Auth", badge: "PRD-01", type: "req", icon: FileText } },
-  { id: "s1", type: "trace", position: { x: 350, y: 100 }, data: { label: "Auth Service", badge: "Microservice", type: "srv", icon: Server } },
-  { id: "t1", type: "trace", position: { x: 650, y: 50 }, data: { label: "Setup JWT", badge: "TASK-101", type: "tsk", icon: ListChecks } },
-  { id: "t2", type: "trace", position: { x: 650, y: 150 }, data: { label: "OAuth config", badge: "TASK-102", type: "tsk", icon: ListChecks } },
-];
-const traceEdges = [
-  { id: 'tr1', source: 'r1', target: 's1', animated: true, style: { stroke: '#52525b', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' } },
-  { id: 'tr2', source: 's1', target: 't1', style: { stroke: '#52525b', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' } },
-  { id: 'tr3', source: 's1', target: 't2', style: { stroke: '#52525b', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' } },
+
+const initialTraceNodes: any[] = [
+  { id: "r1", type: "trace", position: { x: 0, y: 100 }, data: { label: "User Authentication", badge: "PRD-01", type: "requirement", description: "Implement secure login for all users." } },
+  { id: "s1", type: "trace", position: { x: 300, y: 100 }, data: { label: "Auth Service", badge: "Microservice", type: "service", description: "Node.js identity provider." } },
+  { id: "api1", type: "trace", position: { x: 600, y: 50 }, data: { label: "/v1/auth/login", badge: "API", type: "api", description: "Login endpoint." } },
+  { id: "api2", type: "trace", position: { x: 600, y: 150 }, data: { label: "/v1/auth/refresh", badge: "API", type: "api", description: "Refresh token endpoint." } },
+  { id: "t1", type: "trace", position: { x: 900, y: 20 }, data: { label: "Setup JWT", badge: "TASK-101", type: "task", description: "Configure JWT signing keys." } },
+  { id: "t2", type: "trace", position: { x: 900, y: 80 }, data: { label: "Redis Storage", badge: "TASK-102", type: "task", description: "Setup Redis for token storage." } },
+  { id: "t3", type: "trace", position: { x: 900, y: 180 }, data: { label: "Token Rotation", badge: "TASK-103", type: "task", description: "Implement refresh token rotation." } },
 ];
 
+const initialTraceEdges: any[] = [
+  { id: 'tr1', source: 'r1', target: 's1', animated: true, style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'tr2', source: 's1', target: 'api1', style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'tr3', source: 's1', target: 'api2', style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'tr4', source: 'api1', target: 't1', style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'tr5', source: 'api1', target: 't2', style: { stroke: '#52525b', strokeWidth: 2 } },
+  { id: 'tr6', source: 'api2', target: 't3', style: { stroke: '#52525b', strokeWidth: 2 } },
+];
+
+const markerEnd = {
+  type: MarkerType.ArrowClosed,
+  width: 20,
+  height: 20,
+  color: '#3f3f46',
+};
+
 function TraceabilityDemoPanel() {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialTraceNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialTraceEdges);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [impactAnalysis, setImpactAnalysis] = useState(false);
+
+  const performImpactAnalysis = useCallback((nodeId: string) => {
+    const affectedNodeIds = new Set<string>();
+    const affectedEdgeIds = new Set<string>();
+
+    const traverse = (id: string) => {
+      affectedNodeIds.add(id);
+      initialTraceEdges.forEach(edge => {
+        if (edge.source === id) {
+          affectedEdgeIds.add(edge.id);
+          traverse(edge.target);
+        }
+      });
+    };
+
+    traverse(nodeId);
+
+    setNodes(nds => nds.map(n => ({
+      ...n,
+      data: {
+        ...n.data,
+        highlighted: affectedNodeIds.has(n.id),
+        dimmed: !affectedNodeIds.has(n.id)
+      }
+    })));
+
+    setEdges(eds => eds.map(e => ({
+      ...e,
+      animated: affectedEdgeIds.has(e.id),
+      style: affectedEdgeIds.has(e.id) ? { stroke: '#ffffff', strokeWidth: 3 } : { stroke: '#3f3f46', opacity: 0.2 },
+      markerEnd: affectedEdgeIds.has(e.id) ? { ...markerEnd, color: '#ffffff' } : { ...markerEnd, color: '#3f3f46' }
+    })));
+
+    setImpactAnalysis(true);
+  }, [setNodes, setEdges]);
+
+  const resetAnalysis = useCallback(() => {
+    setNodes(nds => nds.map(n => ({
+      ...n,
+      data: { ...n.data, highlighted: false, dimmed: false }
+    })));
+    setEdges(eds => eds.map(e => ({
+      ...e,
+      animated: false,
+      style: { stroke: '#52525b', strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#52525b' }
+    })));
+    setImpactAnalysis(false);
+  }, [setNodes, setEdges]);
+
+  const onNodeClick = (_: any, node: any) => {
+    setSelectedNode(node);
+    if (node.data.type === 'requirement') {
+      performImpactAnalysis(node.id);
+    }
+  };
+
   const handleExport = () => {
-    const data = { nodes: traceNodes, edges: traceEdges };
+    const data = { nodes, edges };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -445,14 +537,76 @@ function TraceabilityDemoPanel() {
           <h2 className="text-3xl font-bold text-white tracking-tight">Traceability Matrix</h2>
           <p className="text-zinc-400 mt-1">Shows how PRD requirements map to generated services and tickets.</p>
         </div>
-        <Button onClick={handleExport} variant="outline" className="gap-2 border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300">
-          <Download className="w-4 h-4" /> Export
-        </Button>
+        <div className="flex gap-2">
+          {impactAnalysis && (
+            <Button variant="outline" size="sm" onClick={resetAnalysis} className="text-xs border-zinc-800 bg-zinc-900/50">Reset Analysis</Button>
+          )}
+          <Button onClick={handleExport} variant="outline" className="gap-2 border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300">
+            <Download className="w-4 h-4" /> Export
+          </Button>
+        </div>
       </div>
-      <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
-        <ReactFlow nodes={traceNodes} edges={traceEdges} nodeTypes={{ trace: TraceNode }} fitView nodesDraggable={false} panOnDrag={false} zoomOnScroll={false} colorMode="dark">
-          <Background color="#3f3f46" gap={24} size={1} />
-        </ReactFlow>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+        <div className="lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden relative min-h-[400px]">
+          <div className="absolute top-4 left-4 z-10">
+             <div className="bg-zinc-950/80 border border-zinc-800 p-3 rounded-lg backdrop-blur-sm">
+                <p className="text-[10px] text-zinc-400">Click a <span className="text-blue-400 font-bold">Requirement node</span> to trigger impact analysis.</p>
+             </div>
+          </div>
+          <ReactFlow 
+            nodes={nodes} 
+            edges={edges} 
+            nodeTypes={{ trace: TraceNode }} 
+            onNodeClick={onNodeClick}
+            fitView 
+            nodesDraggable={false} 
+            colorMode="dark"
+          >
+            <Background color="#3f3f46" gap={24} size={1} />
+          </ReactFlow>
+        </div>
+
+        <AnimatePresence>
+          {selectedNode ? (
+            <motion.div
+              initial={{ x: 20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 20, opacity: 0 }}
+              className="lg:col-span-1 bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6 overflow-y-auto"
+            >
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="text-[10px] uppercase bg-zinc-950 border-zinc-800 text-zinc-500">
+                  {selectedNode.data.type} details
+                </Badge>
+                <button onClick={() => setSelectedNode(null)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-mono text-primary mb-1 block">{selectedNode.data.badge}</span>
+                <h3 className="text-lg font-bold text-white">{selectedNode.data.label}</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Description</label>
+                  <p className="text-sm text-zinc-400 leading-relaxed">{selectedNode.data.description}</p>
+                </div>
+
+                {selectedNode.data.type === 'req' && (
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-[10px] text-blue-400">Traceability mapped to 1 service, 2 APIs, and 3 engineering tasks.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : (
+            <div className="lg:col-span-1 rounded-xl border-2 border-dashed border-zinc-800 bg-zinc-900/30 flex flex-col items-center justify-center p-6 text-center">
+              <Search className="w-8 h-8 text-zinc-700 mb-3" />
+              <p className="text-xs text-zinc-500">Select a node to view full traceability details and lineage.</p>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -602,7 +756,7 @@ export default router;`,
 function AutomationDemoPanel() {
   const integrations = [
     { id: "github", name: "GitHub", desc: "Push scaffolded code.", icon: Github, connected: true },
-    { id: "jira", name: "Jira Software", desc: "Sync architecture tasks.", icon: Trello, connected: false },
+    { id: "clickup", name: "ClickUp", desc: "Manage tasks and goals.", icon: Layers, connected: false },
     { id: "slack", name: "Slack", desc: "Receive notifications.", icon: Slack, connected: false }
   ];
 
