@@ -1,225 +1,307 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FlaskConical, ShieldAlert, AlertTriangle, Code2, Send, CheckCircle2, XCircle, AlertCircle, Copy, Check, Download } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  functionalTests,
-  edgeCaseTests,
-  negativeTests,
-  unitStubs,
-  postmanCollection,
-  type TestCase,
-  type TestStatus,
-} from '@/data/demo/tests';
+  FlaskConical,
+  ShieldAlert,
+  AlertTriangle,
+  Code2,
+  Send,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Copy,
+  Check,
+  Download
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type Category = 'functional' | 'edge' | 'negative' | 'unit' | 'postman';
+type TestStatus = "pass" | "fail" | "edge";
 
-const categories: { key: Category; label: string; icon: React.ElementType; count: number }[] = [
-  { key: 'functional', label: 'Functional Tests', icon: FlaskConical, count: functionalTests.length },
-  { key: 'edge', label: 'Edge Cases', icon: AlertTriangle, count: edgeCaseTests.length },
-  { key: 'negative', label: 'Negative Tests', icon: ShieldAlert, count: negativeTests.length },
-  { key: 'unit', label: 'Unit Test Stubs', icon: Code2, count: unitStubs.length },
-  { key: 'postman', label: 'Postman Collection', icon: Send, count: 0 },
-];
-
-const categoryData: Record<Exclude<Category, 'postman'>, TestCase[]> = {
-  functional: functionalTests,
-  edge: edgeCaseTests,
-  negative: negativeTests,
-  unit: unitStubs,
+type TestCase = {
+  id: string;
+  method: string;
+  endpoint: string;
+  description: string;
+  expected: string;
+  status: TestStatus;
 };
 
-const statusConfig: Record<TestStatus, { label: string; icon: React.ElementType; className: string }> = {
-  pass: { label: 'PASS', icon: CheckCircle2, className: 'bg-accent-green/15 text-accent-green border-accent-green/30' },
-  fail: { label: 'FAIL', icon: XCircle, className: 'bg-accent-red/15 text-accent-red border-accent-red/30' },
-  edge: { label: 'EDGE', icon: AlertCircle, className: 'bg-accent-yellow/15 text-accent-yellow border-accent-yellow/30' },
-};
-
-function StatusBadge({ status }: { status: TestStatus }) {
-  const config = statusConfig[status];
-  const Icon = config.icon;
-  return (
-    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-label-sm font-mono border', config.className)}>
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </span>
-  );
-}
-
-function TestItem({ test }: { test: TestCase }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-border bg-surface p-4 hover:border-border-emphasis transition-colors"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-code text-accent-orange font-medium">{test.method}</span>
-            <span className="font-mono text-code text-foreground truncate">{test.endpoint}</span>
-          </div>
-          <p className="text-body text-muted-foreground mb-2">{test.description}</p>
-          <p className="font-mono text-code text-text-secondary">
-            Expected: <span className="text-text-code">{test.expected}</span>
-          </p>
-        </div>
-        <StatusBadge status={test.status} />
-      </div>
-    </motion.div>
-  );
-}
-
-function PostmanViewer() {
-  const [copied, setCopied] = useState(false);
-  const json = JSON.stringify(postmanCollection, null, 2);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(json);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'blueprint-api-collection.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-heading-md text-foreground font-satoshi">Postman Collection</h3>
-          <p className="text-body text-muted-foreground mt-1">Export and import into Postman or Insomnia</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-surface text-body text-muted-foreground hover:text-foreground hover:border-border-emphasis transition-colors"
-          >
-            {copied ? <Check className="h-3.5 w-3.5 text-accent-green" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          <button
-            onClick={handleDownload}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export .json
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 rounded-lg border border-border bg-elevated overflow-auto">
-        <pre className="p-4 text-code font-mono text-text-secondary leading-relaxed">
-          <code>{json}</code>
-        </pre>
-      </div>
-    </div>
-  );
-}
+type Category = "functional" | "edge" | "negative" | "unit" | "postman";
 
 export default function Testing() {
-  const [active, setActive] = useState<Category>('functional');
 
-  const passCount = Object.values(categoryData).flat().filter(t => t.status === 'pass').length;
-  const failCount = Object.values(categoryData).flat().filter(t => t.status === 'fail').length;
-  const totalCount = Object.values(categoryData).flat().length;
+  const [active, setActive] = useState<Category>("functional");
+
+  const [functionalTests, setFunctionalTests] = useState<TestCase[]>([]);
+  const [edgeCaseTests, setEdgeCaseTests] = useState<TestCase[]>([]);
+  const [negativeTests, setNegativeTests] = useState<TestCase[]>([]);
+  const [unitStubs, setUnitStubs] = useState<TestCase[]>([]);
+  const [postmanCollection, setPostmanCollection] = useState<any>({});
+
+  /*
+  =====================================
+  LOAD TESTS FROM PIPELINE
+  =====================================
+  */
+
+  useEffect(() => {
+
+    const raw = localStorage.getItem("blueprint_project_data");
+
+    if (!raw) return;
+
+    const data = JSON.parse(raw);
+
+    const tests = data.tests || [];
+
+    setFunctionalTests(tests.filter((t: any) => t.category === "functional"));
+    setEdgeCaseTests(tests.filter((t: any) => t.category === "edge"));
+    setNegativeTests(tests.filter((t: any) => t.category === "negative"));
+    setUnitStubs(tests.filter((t: any) => t.category === "unit"));
+
+    setPostmanCollection(data.postmanCollection || {});
+
+  }, []);
+
+  /*
+  =====================================
+  CATEGORY DATA
+  =====================================
+  */
+
+  const categoryData = {
+    functional: functionalTests,
+    edge: edgeCaseTests,
+    negative: negativeTests,
+    unit: unitStubs
+  };
+
+  const categories = [
+    { key: "functional", label: "Functional Tests", icon: FlaskConical, count: functionalTests.length },
+    { key: "edge", label: "Edge Cases", icon: AlertTriangle, count: edgeCaseTests.length },
+    { key: "negative", label: "Negative Tests", icon: ShieldAlert, count: negativeTests.length },
+    { key: "unit", label: "Unit Test Stubs", icon: Code2, count: unitStubs.length },
+    { key: "postman", label: "Postman Collection", icon: Send, count: 0 }
+  ];
+
+  /*
+  =====================================
+  STATUS CONFIG
+  =====================================
+  */
+
+  const statusConfig = {
+    pass: {
+      label: "PASS",
+      icon: CheckCircle2,
+      className: "bg-green-500/10 text-green-400 border-green-500/30"
+    },
+    fail: {
+      label: "FAIL",
+      icon: XCircle,
+      className: "bg-red-500/10 text-red-400 border-red-500/30"
+    },
+    edge: {
+      label: "EDGE",
+      icon: AlertCircle,
+      className: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+    }
+  };
+
+  function StatusBadge({ status }: { status: TestStatus }) {
+
+    const config = statusConfig[status];
+    const Icon = config.icon;
+
+    return (
+      <span className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border",
+        config.className
+      )}>
+        <Icon className="h-3 w-3"/>
+        {config.label}
+      </span>
+    );
+  }
+
+  /*
+  =====================================
+  POSTMAN VIEWER
+  =====================================
+  */
+
+  function PostmanViewer() {
+
+    const [copied, setCopied] = useState(false);
+
+    const json = JSON.stringify(postmanCollection, null, 2);
+
+    const copy = () => {
+
+      navigator.clipboard.writeText(json);
+      setCopied(true);
+
+      setTimeout(() => setCopied(false), 2000);
+
+    };
+
+    const download = () => {
+
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "api-collection.json";
+      a.click();
+
+      URL.revokeObjectURL(url);
+
+    };
+
+    return (
+      <div className="space-y-4">
+
+        <div className="flex gap-2">
+
+          <button onClick={copy} className="btn">
+            {copied ? <Check/> : <Copy/>}
+          </button>
+
+          <button onClick={download} className="btn">
+            <Download/>
+          </button>
+
+        </div>
+
+        <pre className="bg-zinc-900 p-4 rounded overflow-auto">
+          <code>{json}</code>
+        </pre>
+
+      </div>
+    );
+
+  }
+
+  /*
+  =====================================
+  STATS
+  =====================================
+  */
+
+  const allTests = Object.values(categoryData).flat();
+
+  const passCount = allTests.filter(t => t.status === "pass").length;
+  const failCount = allTests.filter(t => t.status === "fail").length;
+  const totalCount = allTests.length;
+
+  /*
+  =====================================
+  UI
+  =====================================
+  */
 
   return (
-    <div className="flex h-full bg-canvas">
-      {/* Categories sidebar */}
-      <aside className="w-[220px] shrink-0 border-r border-border bg-surface p-4 flex flex-col gap-1">
-        <h2 className="text-label-sm text-muted-foreground uppercase tracking-wider mb-3 px-2">Test Categories</h2>
-        {categories.map((cat) => {
+
+    <div className="flex h-full">
+
+      {/* Sidebar */}
+
+      <aside className="w-[220px] border-r p-4">
+
+        {categories.map(cat => {
+
           const Icon = cat.icon;
-          const isActive = active === cat.key;
+
           return (
             <button
               key={cat.key}
-              onClick={() => setActive(cat.key)}
+              onClick={() => setActive(cat.key as Category)}
               className={cn(
-                'flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-body transition-colors text-left',
-                isActive
-                  ? 'bg-elevated text-foreground border-l-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-elevated/50'
+                "flex items-center gap-2 w-full px-3 py-2 rounded text-sm",
+                active === cat.key ? "bg-zinc-800 text-white" : "text-zinc-400"
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">{cat.label}</span>
-              {cat.count > 0 && (
-                <span className={cn('text-label-sm font-mono', isActive ? 'text-primary' : 'text-text-muted')}>
-                  {cat.count}
-                </span>
-              )}
+              <Icon className="h-4 w-4"/>
+              {cat.label}
             </button>
           );
+
         })}
 
-        {/* Summary stats */}
-        <div className="mt-auto pt-4 border-t border-border space-y-2 px-2">
-          <div className="flex justify-between text-label-sm">
-            <span className="text-muted-foreground">Total</span>
-            <span className="text-foreground font-mono">{totalCount}</span>
-          </div>
-          <div className="flex justify-between text-label-sm">
-            <span className="text-accent-green">Passing</span>
-            <span className="text-accent-green font-mono">{passCount}</span>
-          </div>
-          <div className="flex justify-between text-label-sm">
-            <span className="text-accent-red">Failing</span>
-            <span className="text-accent-red font-mono">{failCount}</span>
-          </div>
+        <div className="mt-6 text-xs space-y-1">
+
+          <div>Total: {totalCount}</div>
+          <div className="text-green-400">Passing: {passCount}</div>
+          <div className="text-red-400">Failing: {failCount}</div>
+
         </div>
+
       </aside>
 
-      {/* Main content */}
+      {/* Main */}
+
       <main className="flex-1 p-6 overflow-auto">
+
         <AnimatePresence mode="wait">
-          {active === 'postman' ? (
-            <motion.div key="postman" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
-              <PostmanViewer />
-            </motion.div>
+
+          {active === "postman" ? (
+
+            <PostmanViewer/>
+
           ) : (
-            <motion.div key={active} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-heading-md text-foreground font-satoshi">
-                    {categories.find(c => c.key === active)?.label}
-                  </h3>
-                  <p className="text-body text-muted-foreground mt-1">
-                    {active === 'functional' && 'Core endpoint tests validating expected behavior'}
-                    {active === 'edge' && 'Boundary conditions and unusual but valid inputs'}
-                    {active === 'negative' && 'Invalid inputs and unauthorized access attempts'}
-                    {active === 'unit' && 'Service-level unit test stubs for core logic'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {(['pass', 'fail', 'edge'] as TestStatus[]).map(s => {
-                    const count = categoryData[active].filter(t => t.status === s).length;
-                    if (count === 0) return null;
-                    return (
-                      <div key={s} className="flex items-center gap-1.5 text-label-sm">
-                        <StatusBadge status={s} />
-                        <span className="text-text-muted font-mono">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+
+            <motion.div
+              key={active}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+
               <div className="space-y-3">
-                {categoryData[active].map((test) => (
-                  <TestItem key={test.id} test={test} />
+
+                {categoryData[active].map(test => (
+
+                  <div key={test.id} className="p-4 border rounded bg-zinc-900">
+
+                    <div className="flex justify-between">
+
+                      <div>
+
+                        <div className="font-mono text-orange-400">
+                          {test.method} {test.endpoint}
+                        </div>
+
+                        <p className="text-sm text-zinc-400">
+                          {test.description}
+                        </p>
+
+                        <p className="text-xs text-zinc-500">
+                          Expected: {test.expected}
+                        </p>
+
+                      </div>
+
+                      <StatusBadge status={test.status}/>
+
+                    </div>
+
+                  </div>
+
                 ))}
+
               </div>
+
             </motion.div>
+
           )}
+
         </AnimatePresence>
+
       </main>
+
     </div>
+
   );
+
 }

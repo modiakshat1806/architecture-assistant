@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Bot, Sparkles, AlertCircle } from "lucide-react";
+import { Send, Bot, AlertCircle } from "lucide-react";
 
-// Types for our chat
 type Message = {
   id: string;
   role: "ai" | "user";
@@ -15,61 +14,130 @@ type Message = {
   timestamp: string;
 };
 
-// Mock initial conversation
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    role: "ai",
-    content: "I've reviewed your PRD for the 'E-Commerce Replatforming'. The requirements for the cart system are clear, but I found a potential edge case regarding payment processing.",
-    timestamp: "10:00 AM"
-  },
-  {
-    id: "2",
-    role: "ai",
-    content: "You mentioned using Stripe, but the PRD doesn't specify how we should handle webhook failures if our server goes down. Should we implement a dead-letter queue for retry logic, or rely on Stripe's built-in retries?",
-    timestamp: "10:00 AM"
-  }
-];
-
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
+  /*
+  ===============================
+  Load clarifications from pipeline
+  ===============================
+  */
+
   useEffect(() => {
+
+    const raw = localStorage.getItem("blueprint_project_data");
+
+    if (!raw) return;
+
+    const data = JSON.parse(raw);
+
+    const clarifications = data.clarifications || [];
+
+    const aiMessages: Message[] = clarifications.map((q: any, i: number) => ({
+      id: "ai-" + i,
+      role: "ai",
+      content: q.question || q,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    }));
+
+    setMessages(aiMessages);
+
+  }, []);
+
+  /*
+  ===============================
+  Auto scroll
+  ===============================
+  */
+
+  useEffect(() => {
+
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+
   }, [messages, isTyping]);
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  /*
+  ===============================
+  Send message
+  ===============================
+  */
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+
     e?.preventDefault();
+
     if (!inputValue.trim()) return;
 
-    const newUserMsg: Message = {
+    const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
       content: inputValue,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
     };
 
-    setMessages((prev) => [...prev, newUserMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInputValue("");
     setIsTyping(true);
 
-    // Mock AI response
-    setTimeout(() => {
-      const newAiMsg: Message = {
+    try {
+
+      const raw = localStorage.getItem("blueprint_project_data");
+
+      const context = raw ? JSON.parse(raw) : {};
+
+      const response = await fetch("http://localhost:5000/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: userMsg.content,
+          context
+        })
+      });
+
+      const data = await response.json();
+
+      const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: "Got it. I'll update the architecture to include an SQS queue specifically for Stripe webhook fallback events. This will add slightly to the infrastructure complexity but ensures 0% data loss.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        content: data.reply || "AI response unavailable.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
       };
-      setMessages((prev) => [...prev, newAiMsg]);
-      setIsTyping(false);
-    }, 1500);
+
+      setMessages((prev) => [...prev, aiMsg]);
+
+    } catch (err) {
+
+      const fallbackMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: "⚠️ Backend unavailable or API key exhausted.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      };
+
+      setMessages((prev) => [...prev, fallbackMsg]);
+
+    }
+
+    setIsTyping(false);
+
   };
 
   const handleChipClick = (text: string) => {
@@ -77,123 +145,175 @@ export default function Chat() {
   };
 
   return (
+
     <DashboardLayout>
-      <div className="flex flex-col h-[calc(100vh-8rem)] min-h-[600px] max-w-4xl mx-auto gap-4">
-        
-        {/* Header */}
+
+      <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto gap-4">
+
+        {/* HEADER */}
+
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">PRD Clarification</h1>
+
+          <h1 className="text-3xl font-bold text-white tracking-tight">
+            PRD Clarification
+          </h1>
+
           <p className="text-zinc-400 mt-1 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500" />
-            2 pending clarifications required
+            Resolve ambiguities detected in the PRD
           </p>
+
         </div>
 
-        {/* Chat Interface */}
-        <Card className="flex-1 flex flex-col bg-zinc-900 border-zinc-800 overflow-hidden shadow-xl">
-          <CardHeader className="border-b border-zinc-800 pb-4 bg-zinc-950/50 flex flex-row items-center justify-between">
+        {/* CHAT CARD */}
+
+        <Card className="flex-1 flex flex-col bg-zinc-900 border-zinc-800 overflow-hidden">
+
+          <CardHeader className="border-b border-zinc-800 bg-zinc-950/50">
+
             <CardTitle className="text-white text-sm flex items-center gap-2">
-              <Bot className="w-5 h-5 text-primary-500" />
+              <Bot className="w-5 h-5 text-primary" />
               Blueprint AI Architect
             </CardTitle>
-            <span className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full font-medium">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </span>
-              Online
-            </span>
+
           </CardHeader>
 
-          {/* Messages Area */}
-          <CardContent 
-            className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar" 
+          {/* MESSAGES */}
+
+          <CardContent
             ref={scrollRef}
+            className="flex-1 overflow-y-auto p-6 space-y-6"
           >
+
             {messages.map((msg) => (
-              <div 
-                key={msg.id} 
-                className={`flex gap-4 max-w-[85%] ${msg.role === "user" ? "ml-auto flex-row-reverse" : ""}`}
+
+              <div
+                key={msg.id}
+                className={`flex gap-4 max-w-[85%] ${
+                  msg.role === "user"
+                    ? "ml-auto flex-row-reverse"
+                    : ""
+                }`}
               >
-                <Avatar className={`w-8 h-8 border ${msg.role === "ai" ? "border-primary-500/50 bg-primary-500/10" : "border-zinc-700"}`}>
-                  {msg.role === "ai" ? (
-                    <Bot className="w-5 h-5 text-primary-400 m-auto" />
-                  ) : (
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                  )}
-                  <AvatarFallback>{msg.role === "ai" ? "AI" : "U"}</AvatarFallback>
+
+                <Avatar className="w-8 h-8 border border-zinc-700">
+
+                  {msg.role === "ai"
+                    ? <Bot className="w-5 h-5 m-auto text-primary" />
+                    : <AvatarImage src="https://github.com/shadcn.png" />}
+
+                  <AvatarFallback>
+                    {msg.role === "ai" ? "AI" : "U"}
+                  </AvatarFallback>
+
                 </Avatar>
-                
-                <div className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                  <div className={`
-                    px-4 py-3 rounded-2xl text-sm leading-relaxed
-                    ${msg.role === "user" 
-                      ? "bg-primary-600 text-white rounded-tr-none" 
-                      : "bg-zinc-800 text-zinc-200 rounded-tl-none border border-zinc-700"}
-                  `}>
+
+                <div
+                  className={`flex flex-col ${
+                    msg.role === "user"
+                      ? "items-end"
+                      : "items-start"
+                  }`}
+                >
+
+                  <div
+                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed
+                    ${
+                      msg.role === "user"
+                        ? "bg-primary text-white"
+                        : "bg-zinc-800 text-zinc-200 border border-zinc-700"
+                    }`}
+                  >
                     {msg.content}
                   </div>
-                  <span className="text-[10px] text-zinc-500 mt-1 px-1">{msg.timestamp}</span>
+
+                  <span className="text-[10px] text-zinc-500 mt-1">
+                    {msg.timestamp}
+                  </span>
+
                 </div>
+
               </div>
+
             ))}
-            
+
             {isTyping && (
-              <div className="flex gap-4 max-w-[85%]">
-                <Avatar className="w-8 h-8 border border-primary-500/50 bg-primary-500/10">
-                  <Bot className="w-5 h-5 text-primary-400 m-auto" />
+
+              <div className="flex gap-4">
+
+                <Avatar className="w-8 h-8 border border-zinc-700">
+                  <AvatarFallback>AI</AvatarFallback>
                 </Avatar>
-                <div className="bg-zinc-800 border border-zinc-700 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                  <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+
+                <div className="bg-zinc-800 border border-zinc-700 px-4 py-3 rounded-xl text-zinc-400 text-sm">
+                  AI thinking...
                 </div>
+
               </div>
+
             )}
+
           </CardContent>
 
-          {/* Quick Action Chips */}
+          {/* QUICK SUGGESTIONS */}
+
           <div className="px-6 pb-2 pt-2 bg-zinc-900 flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs bg-zinc-950 border-zinc-700 text-zinc-300 hover:text-white rounded-full"
-              onClick={() => handleChipClick("Let's implement a dead-letter queue (SQS) to be safe.")}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                handleChipClick("Let's implement a retry queue for webhook failures.")
+              }
             >
-              Suggest: Use SQS Dead-Letter Queue
+              Suggest: Add retry queue
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs bg-zinc-950 border-zinc-700 text-zinc-300 hover:text-white rounded-full"
-              onClick={() => handleChipClick("Stripe's built-in retries are fine for MVP.")}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                handleChipClick("Stripe built-in retries are sufficient for MVP.")
+              }
             >
-              Suggest: Rely on Stripe retries
+              Suggest: Use Stripe retries
             </Button>
+
           </div>
 
-          {/* Input Area */}
+          {/* INPUT */}
+
           <div className="p-4 bg-zinc-950 border-t border-zinc-800">
-            <form onSubmit={handleSendMessage} className="relative flex items-center">
-              <Input 
+
+            <form
+              onSubmit={handleSendMessage}
+              className="relative flex items-center"
+            >
+
+              <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Type your clarification..." 
-                className="pr-12 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 h-12 rounded-xl focus-visible:ring-primary-500"
+                placeholder="Type your clarification..."
+                className="pr-12 bg-zinc-900 border-zinc-700 text-white"
               />
-              <Button 
-                type="submit" 
-                size="icon" 
-                className={`absolute right-1.5 h-9 w-9 rounded-lg transition-all ${inputValue.trim() ? "bg-primary hover:brightness-110 text-white" : "bg-zinc-800 text-zinc-500"}`}
+
+              <Button
+                type="submit"
+                size="icon"
+                className="absolute right-1.5 h-9 w-9"
                 disabled={!inputValue.trim() || isTyping}
               >
                 <Send className="w-4 h-4" />
               </Button>
+
             </form>
+
           </div>
+
         </Card>
 
       </div>
+
     </DashboardLayout>
   );
 }

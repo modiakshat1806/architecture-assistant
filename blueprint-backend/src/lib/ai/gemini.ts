@@ -20,7 +20,7 @@ export async function generateJSONResponse<T>(
     ai = new GoogleGenAI({ apiKey });
   }
 
-  const model = "gemini-2.5-flash"; 
+  const model = "gemini-2-flash"; 
 
   let parts = [];
   if (typeof userPromptOrFile === "string") {
