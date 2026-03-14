@@ -60,6 +60,7 @@ export default function Sprints() {
   // --- EDITING STATE ---
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   // --- DATA LOADING ---
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function Sprints() {
     
     try {
       const data = JSON.parse(raw);
+      setProjectId(data.id || null);
       const aiTasks = data.tasks || [];
       const aiStories = data.stories || [];
 
@@ -77,16 +79,16 @@ export default function Sprints() {
         const parentStory = aiStories.find((s: any) => s.id === t.storyId);
 
         return {
-          id: t.id || t.taskId || `TSK-${i + 1}`,
-          title: t.title || t.name || t.task || "Untitled Task",
-          status: t.status || 'todo', // Default everything to the first column
-          priority: t.priority || 'Medium',
-          type: t.type || 'Backend',
-          points: t.points || t.storyPoints || 3,
-          story: parentStory ? (parentStory.title || parentStory.name) : "General Architecture",
+          id: t?.id || t?.taskId || `TSK-${i + 1}`,
+          title: t?.title || t?.name || t?.task || "Untitled Task",
+          status: t?.status || 'todo', // Default everything to the first column
+          priority: t?.priority || 'Medium',
+          type: t?.type || 'Backend',
+          points: t?.points || t?.storyPoints || 3,
+          story: parentStory ? (parentStory.title || parentStory.name || parentStory.story) : "General Architecture",
           // Mock assignees for UI aesthetics
-          assignee: t.assignee || ['Alex', 'Sarah', 'Mike', 'David'][i % 4],
-          description: t.description || ""
+          assignee: t?.assignee || ['Alex', 'Sarah', 'Mike', 'David'][i % 4],
+          description: t?.description || ""
         };
       });
 
@@ -131,6 +133,20 @@ export default function Sprints() {
           const existingActivities = existingActivitiesRaw ? JSON.parse(existingActivitiesRaw) : [];
           localStorage.setItem("blueprint_local_activities", JSON.stringify([activity, ...existingActivities].slice(0, 50)));
 
+          // SYNC TO BACKEND IF PROJECT IS SAVED
+          if (projectId && projectId !== 'local-session') {
+            fetch("http://localhost:5000/api/activities", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                projectId,
+                type: 'TASK_UPDATED',
+                description: `Edited details for ${editingTask.id}`,
+                metadata: { taskId: editingTask.id }
+              })
+            }).catch(err => console.error("Error syncing activity to backend", err));
+          }
+
         } catch (err) {
           console.error("Error persisting task edit", err);
         }
@@ -150,11 +166,11 @@ export default function Sprints() {
     if (!searchQuery) return tasks;
     const query = searchQuery.toLowerCase();
     return tasks.filter(task =>
-      task.id.toLowerCase().includes(query) ||
-      task.title.toLowerCase().includes(query) ||
-      task.priority.toLowerCase() === query ||
-      task.story.toLowerCase().includes(query) ||
-      task.type.toLowerCase().includes(query)
+      (task.id?.toLowerCase() || "").includes(query) ||
+      (task.title?.toLowerCase() || "").includes(query) ||
+      (task.priority?.toLowerCase() || "") === query ||
+      (task.story?.toLowerCase() || "").includes(query) ||
+      (task.type?.toLowerCase() || "").includes(query)
     );
   }, [tasks, searchQuery]);
 
@@ -212,6 +228,20 @@ export default function Sprints() {
           const existingActivities = existingActivitiesRaw ? JSON.parse(existingActivitiesRaw) : [];
           localStorage.setItem("blueprint_local_activities", JSON.stringify([activity, ...existingActivities].slice(0, 50)));
 
+          // SYNC TO BACKEND IF PROJECT IS SAVED
+          if (projectId && projectId !== 'local-session') {
+            fetch("http://localhost:5000/api/activities", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                projectId,
+                type: 'TASK_UPDATED',
+                description: `Updated status of ${draggedTaskId} to ${newStatus}`,
+                metadata: { taskId: draggedTaskId, newStatus }
+              })
+            }).catch(err => console.error("Error syncing activity to backend", err));
+          }
+
         } catch (err) {
           console.error("Error persisting task status", err);
         }
@@ -243,28 +273,6 @@ export default function Sprints() {
       case "critical": return "text-red-400 bg-red-500/10 border-red-500/20";
       case "medium": return "text-amber-400 bg-amber-500/10 border-amber-500/20";
       default: return "text-green-400 bg-green-500/10 border-green-500/20";
-    }
-  };
-
-  const syncToClickUp = async () => {
-    try {
-      toast({ title: "Syncing...", description: "Pushing tasks to ClickUp sprint board." });
-      const response = await fetch("http://localhost:5000/api/sync-clickup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: "demo-project-123",
-          sprint: { name: "Sprint 1", tasks: tasks.map(t => t.id) }
-        })
-      });
-      if (!response.ok) throw new Error("Sync failed");
-      toast({ title: "Synced", description: "Tasks successfully pushed to ClickUp." });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Sync Failed",
-        description: "Could not sync to ClickUp. Ensure backend is running."
-      });
     }
   };
 
@@ -338,13 +346,6 @@ export default function Sprints() {
             onClick={() => setIsFilterOpen(!isFilterOpen)}
           >
             <Filter className="w-4 h-4" /> {isFilterOpen ? "Hide Filters" : "Filter"}
-          </Button>
-          <Button
-            variant="outline"
-            className="bg-zinc-950 border-blue-500/30 text-blue-400 hover:bg-blue-500/10 gap-2"
-            onClick={syncToClickUp}
-          >
-            <RefreshCcw className="w-4 h-4" /> Push to ClickUp
           </Button>
           <Button
             className="bg-primary hover:brightness-110 text-primary-foreground gap-2 shadow-[0_0_15px_-3px_rgba(249,115,22,0.4)]"

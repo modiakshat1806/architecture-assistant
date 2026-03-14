@@ -58,12 +58,26 @@ const server = http.createServer((req, res) => {
           // 2. Recursive Write Function
           const writeFiles = (nodes, currentPath) => {
             nodes.forEach(node => {
+              // Skip trailing slashes or empty parts
+              if (!node.name || node.name.trim() === '') return;
+              
               const fullPath = path.join(currentPath, node.name);
+              
               if (node.type === 'folder') {
-                if (!fs.existsSync(fullPath)) fs.mkdirSync(fullPath, { recursive: true });
+                if (!fs.existsSync(fullPath)) {
+                  fs.mkdirSync(fullPath, { recursive: true });
+                }
                 if (node.children) writeFiles(node.children, fullPath);
               } else {
-                fs.writeFileSync(fullPath, node.content || '');
+                try {
+                  fs.writeFileSync(fullPath, node.content || '');
+                } catch (writeErr) {
+                  if (writeErr.code === 'EISDIR') {
+                    console.warn(`Skipping write to ${fullPath}: Path is a directory.`);
+                  } else {
+                    throw writeErr;
+                  }
+                }
               }
             });
           };
@@ -76,7 +90,7 @@ const server = http.createServer((req, res) => {
               if (codeErr) {
                 console.error('VS Code launch error:', codeErr);
                 res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Failed to launch VS Code. Ensure it is in your PATH.' }));
+                res.end(JSON.stringify({ error: `Scaffolding done, but failed to launch VS Code: ${codeErr.message}` }));
               } else {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ message: 'Scaffolding complete', path: targetPath }));
@@ -85,7 +99,7 @@ const server = http.createServer((req, res) => {
           } catch (writeErr) {
             console.error('File write error:', writeErr);
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Failed to write files. Check permissions.' }));
+            res.end(JSON.stringify({ error: `Failed to write files: ${writeErr.message}` }));
           }
         });
       } catch (parseErr) {

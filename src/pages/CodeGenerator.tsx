@@ -296,10 +296,6 @@ export default function CodeGenerator() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2" onClick={() => toast({ title: "Opening StackBlitz", description: "Launching cloud dev environment..." })}>
-            <Terminal className="w-4 h-4" /> StackBlitz
-          </Button>
-
           <Button variant="outline" className="bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 gap-2" onClick={() => toast({ title: "VS Code", description: "Exporting to local workspace..." })}>
             <VSCodeIcon className="w-4 h-4" /> VS Code
           </Button>

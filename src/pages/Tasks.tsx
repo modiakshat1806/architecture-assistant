@@ -99,12 +99,12 @@ export default function Tasks() {
               description: parsedDescription || "No description provided.",
               totalPoints: totalPoints,
               tasks: storyTasks.map((t: any, tIdx: number) => ({
-                id: t.id || t.taskId || `TSK-${index}-${tIdx}`,
+                id: t?.id || t?.taskId || `TSK-${index}-${tIdx}`,
                 // THE FIX: Add t.task to the task fallbacks just in case
-                title: t.title || t.name || t.task || "Untitled Task",
-                priority: t.priority || "Medium",
-                type: t.type || "Backend",
-                points: t.points || t.storyPoints || 3
+                title: t?.title || t?.name || t?.task || "Untitled Task",
+                priority: t?.priority || "Medium",
+                type: t?.type || "Backend",
+                points: t?.points || t?.storyPoints || 3
               }))
             };
           });
@@ -119,11 +119,11 @@ export default function Tasks() {
               description: "Architectural and foundational tasks not tied to a specific user story.",
               totalPoints: orphanedTasks.reduce((sum: number, t: any) => sum + (t.points || t.storyPoints || 3), 0),
               tasks: orphanedTasks.map((t: any, tIdx: number) => ({
-                id: t.id || t.taskId || `TSK-GEN-${tIdx}`,
-                title: t.title || t.name || "Untitled Task",
-                priority: t.priority || "Medium",
-                type: t.type || "Infrastructure",
-                points: t.points || t.storyPoints || 3
+              id: t?.id || t?.taskId || `TSK-GEN-${tIdx}`,
+              title: t?.title || t?.name || "Untitled Task",
+              priority: t?.priority || "Medium",
+              type: t?.type || "Infrastructure",
+              points: t?.points || t?.storyPoints || 3
               }))
             });
           }
@@ -143,15 +143,15 @@ export default function Tasks() {
     return backlogStories.map(story => {
       // Find tasks that match the search query
       const filteredTasks = story.tasks.filter(task =>
-        task.title.toLowerCase().includes(query) ||
-        task.priority.toLowerCase().includes(query) ||
-        task.id.toLowerCase().includes(query) ||
-        task.type.toLowerCase().includes(query)
+        (task.title?.toLowerCase() || "").includes(query) ||
+        (task.priority?.toLowerCase() || "").includes(query) ||
+        (task.id?.toLowerCase() || "").includes(query) ||
+        (task.type?.toLowerCase() || "").includes(query)
       );
 
       // If story title matches query, include the whole story
-      const isStoryMatch = story.title.toLowerCase().includes(query) ||
-        story.description.toLowerCase().includes(query);
+      const isStoryMatch = (story.title?.toLowerCase() || "").includes(query) ||
+        (story.description?.toLowerCase() || "").includes(query);
 
       if (isStoryMatch) {
         return story;

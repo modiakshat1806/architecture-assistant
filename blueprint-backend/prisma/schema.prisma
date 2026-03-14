@@ -77,82 +77,6 @@ model ClarificationAnswer {
   createdAt  DateTime @default(now())
 }
 
-<<<<<<< Updated upstream
-model GitHubConnection {
-  id                   String   @id @default(uuid()) @db.Uuid
-  profileId            String   @unique @db.Uuid
-  githubUserId         Int
-  username             String
-  accessTokenEncrypted String   @db.Text
-  scope                String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  profile              Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  repos                GitHubRepoMapping[]
-
-  @@unique([githubUserId, username])
-}
-
-model GitHubRepoMapping {
-  id                 String   @id @default(uuid()) @db.Uuid
-  projectId          String   @unique @db.Uuid
-  githubConnectionId String   @db.Uuid
-  owner              String
-  repo               String
-  fullName           String   @unique
-  webhookId          Int?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  githubConnection   GitHubConnection @relation(fields: [githubConnectionId], references: [id], onDelete: Cascade)
-}
-
-// ── Slack Integration ────────────────────────────────────────
-
-model SlackIntegration {
-  id                String   @id @default(uuid()) @db.Uuid
-  profileId         String   @unique @db.Uuid
-  workspaceId       String
-  workspaceName     String?
-  botTokenEncrypted String   @db.Text
-  scope             String?
-  channelId         String?
-  channelName       String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  profile           Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  channels          SlackChannel[]
-  eventLogs         SlackEventLog[]
-}
-
-model SlackChannel {
-  id                 String   @id @default(uuid()) @db.Uuid
-  slackIntegrationId String   @db.Uuid
-  slackChannelId     String
-  name               String
-  isSelected         Boolean  @default(false)
-  createdAt          DateTime @default(now())
-
-  integration        SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
-
-  @@unique([slackIntegrationId, slackChannelId])
-}
-
-model SlackEventLog {
-  id                 String   @id @default(uuid()) @db.Uuid
-  slackIntegrationId String   @db.Uuid
-  eventType          String
-  payload            Json     @default("{}")
-  status             String   @default("sent")
-  errorMessage       String?
-  createdAt          DateTime @default(now())
-
-  integration        SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
-=======
 model Activity {
   id          String   @id @default(uuid()) @db.Uuid
   projectId   String   @db.Uuid
@@ -162,5 +86,4 @@ model Activity {
   createdAt   DateTime @default(now())
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
->>>>>>> Stashed changes
 }

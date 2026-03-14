@@ -1,10 +1,14 @@
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Github, Trello, Slack, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -23,33 +27,213 @@ const ClickUpIcon = ({ className }: { className?: string }) => (
 export default function Automation() {
   const backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+
   const [connections, setConnections] = useState({
     github: false,
     clickup: false,
     slack: false
   });
   const [userId, setUserId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // GitHub State
+  const [repos, setRepos] = useState<any[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState("");
+  const [linkedRepo, setLinkedRepo] = useState("");
+  const [newRepoName, setNewRepoName] = useState("");
+
+  // Slack State
+  const [slackChannels, setSlackChannels] = useState<any[]>([]);
+  const [selectedSlackChannel, setSelectedSlackChannel] = useState("");
+  const [slackWorkspace, setSlackWorkspace] = useState("");
+  const [slackSelectedChannelName, setSlackSelectedChannelName] = useState("");
 
   useEffect(() => {
-    const fetchStatus = async () => {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       setUserId(user.id);
 
-      try {
-        const res = await fetch(`http://localhost:5000/api/clickup/status?profileId=${user.id}`);
-        const data = await res.json();
-        if (data.isConnected) {
-          setConnections(prev => ({ ...prev, clickup: true }));
-        }
-      } catch (err) {
-        console.error("Failed to fetch ClickUp status", err);
-      }
+      const savedProject = localStorage.getItem("blueprint_project_id");
+      if (savedProject) setProjectId(savedProject);
+
+      fetchClickUpStatus(user.id);
+      fetchGitHubStatus(user.id, savedProject);
+      fetchSlackStatus(user.id);
     };
-    fetchStatus();
+    init();
   }, []);
+
+  const fetchClickUpStatus = async (uid: string) => {
+    try {
+      const res = await fetch(`${backendBase}/api/clickup/status?profileId=${uid}`);
+      const data = await res.json();
+      if (data.isConnected) {
+        setConnections(prev => ({ ...prev, clickup: true }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch ClickUp status", err);
+    }
+  };
+
+  const fetchGitHubStatus = async (uid: string, pid: string | null) => {
+    try {
+      const res = await fetch(`${backendBase}/api/github/connection?profileId=${uid}`);
+      const data = await res.json();
+      if (data.connected) {
+        setConnections(prev => ({ ...prev, github: true }));
+        loadGitHubRepos(uid);
+        if (pid) loadLinkedRepo(pid);
+      }
+    } catch (err) {
+      console.error("Failed to fetch GitHub status", err);
+    }
+  };
+
+  const loadGitHubRepos = async (uid: string) => {
+    try {
+      const res = await fetch(`${backendBase}/api/github/repos?profileId=${uid}`);
+      const data = await res.json();
+      if (data.repos) setRepos(data.repos);
+    } catch (err) {
+      console.error("Failed to load GitHub repos", err);
+    }
+  };
+
+  const loadLinkedRepo = async (pid: string) => {
+    try {
+      const res = await fetch(`${backendBase}/api/github/projects/${pid}/link-repo`);
+      const data = await res.json();
+      if (data.mapping) {
+        setLinkedRepo(`${data.mapping.owner}/${data.mapping.repo}`);
+        setSelectedRepo(`${data.mapping.owner}/${data.mapping.repo}`);
+      }
+    } catch (err) {
+      console.error("Failed to load linked repo", err);
+    }
+  };
+
+  const fetchSlackStatus = async (uid: string) => {
+    try {
+      const res = await fetch(`${backendBase}/api/slack/connection?profileId=${uid}`);
+      const data = await res.json();
+      if (data.connected) {
+        setConnections(prev => ({ ...prev, slack: true }));
+        setSlackWorkspace(data.connection.workspaceName);
+        setSlackSelectedChannelName(data.connection.channelName);
+        setSelectedSlackChannel(data.connection.channelId);
+        loadSlackChannels(uid);
+      }
+    } catch (err) {
+      console.error("Failed to fetch Slack status", err);
+    }
+  };
+
+  const loadSlackChannels = async (uid: string) => {
+    try {
+      const res = await fetch(`${backendBase}/api/slack/channels?profileId=${uid}`);
+      const data = await res.json();
+      if (data.channels) setSlackChannels(data.channels);
+    } catch (err) {
+      console.error("Failed to load Slack channels", err);
+    }
+  };
+
+  const createRepo = async () => {
+    if (!userId || !newRepoName) return;
+    const res = await fetch(`${backendBase}/api/github/repos/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: userId, name: newRepoName, isPrivate: true })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to create repo");
+    loadGitHubRepos(userId);
+    setNewRepoName("");
+    return data.repo;
+  };
+
+  const linkRepo = async () => {
+    if (!userId || !projectId || !selectedRepo) return;
+    const [owner, repo] = selectedRepo.split("/");
+    const res = await fetch(`${backendBase}/api/github/projects/${projectId}/link-repo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: userId, owner, repo, allowRelink: true })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to link repo");
+    setLinkedRepo(selectedRepo);
+  };
+
+  const pushProject = async () => {
+    if (!userId || !projectId || !linkedRepo) return;
+    
+    // Get generated files from localStorage (saved in CodeGenerator.tsx)
+    const rawFiles = localStorage.getItem("generatedCodeFiles");
+    if (!rawFiles) {
+      toast({ title: "No Code", description: "Generate code in the Code Scaffolding page first.", variant: "destructive" });
+      return;
+    }
+    const files = JSON.parse(rawFiles);
+
+    toast({ title: "Pushing...", description: "Pushing code to GitHub repository." });
+    
+    const res = await fetch(`${backendBase}/api/github/projects/${projectId}/push`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        files, 
+        branch: "main", 
+        commitMessage: "feat: initial blueprint scaffold" 
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to push code");
+    toast({ title: "Success", description: "Code pushed to GitHub successfully!" });
+  };
+
+  const selectSlackChannel = async (cid: string) => {
+    if (!userId) return;
+    const channel = slackChannels.find(c => c.slackChannelId === cid);
+    const res = await fetch(`${backendBase}/api/slack/channel/select`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: userId, channelId: cid, channelName: channel?.name })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to select channel");
+    setSelectedSlackChannel(cid);
+    setSlackSelectedChannelName(channel?.name || cid);
+  };
+
+  const testSlack = async () => {
+    if (!userId) return;
+    const res = await fetch(`${backendBase}/api/slack/test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: userId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to send test message");
+  };
+
+  const disconnectSlack = async () => {
+    if (!userId) return;
+    const res = await fetch(`${backendBase}/api/slack/disconnect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: userId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to disconnect Slack");
+    setConnections(prev => ({ ...prev, slack: false }));
+    setSlackWorkspace("");
+    setSlackSelectedChannelName("");
+    setSelectedSlackChannel("");
+  };
 
   const integrations = [
     { id: "github", name: "GitHub", desc: "Push scaffolded code directly to your repositories.", icon: Github },
@@ -65,14 +249,70 @@ export default function Automation() {
       }
       toast({ title: "Redirecting...", description: "Taking you to ClickUp to authorize." });
       try {
-        const res = await fetch("http://localhost:5000/api/clickup/auth-url");
+        const res = await fetch(`${backendBase}/api/clickup/auth-url`);
         const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || "Backend failed to generate ClickUp URL.");
+        }
+
         if (data.url) {
           window.location.href = data.url;
           return;
+        } else {
+          throw new Error("No authorization URL returned from backend.");
         }
-      } catch (err) {
-        toast({ title: "Error", description: "Failed to fetch auth URL.", variant: "destructive" });
+      } catch (err: any) {
+        toast({ 
+          title: "ClickUp Auth Error", 
+          description: err.message || "Failed to fetch auth URL.", 
+          variant: "destructive" 
+        });
+        console.error("ClickUp Auth Error:", err);
+        return;
+      }
+    }
+
+    if (id === "github" && !connections.github) {
+      if (!userId) {
+        toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Redirecting...", description: "Taking you to GitHub to authorize." });
+      try {
+        const res = await fetch(`${backendBase}/api/github/oauth/start?profileId=${userId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to get GitHub auth URL");
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        } else {
+          throw new Error("No URL returned from backend");
+        }
+      } catch (err: any) {
+        toast({ title: "GitHub Auth Error", description: err.message, variant: "destructive" });
+        return;
+      }
+    }
+
+    if (id === "slack" && !connections.slack) {
+      if (!userId) {
+        toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Redirecting...", description: "Taking you to Slack to authorize." });
+      try {
+        const res = await fetch(`${backendBase}/api/slack/oauth/start?profileId=${userId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to get Slack auth URL");
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        } else {
+          throw new Error("No URL returned from backend");
+        }
+      } catch (err: any) {
+        toast({ title: "Slack Auth Error", description: err.message, variant: "destructive" });
         return;
       }
     }
@@ -81,7 +321,6 @@ export default function Automation() {
     setConnections(prev => ({ ...prev, [id]: nextState }));
 
     if (!nextState && id === "clickup") {
-      // In a real app we'd also call a backend disconnect route
       toast({
         title: "Connection Severed",
         description: "ClickUp disconnected successfully.",

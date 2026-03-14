@@ -58,6 +58,7 @@ function parseState(state: string): OAuthState {
 export function buildSlackOAuthStartUrl(profileId: string): string {
   const clientId = requireEnv("SLACK_CLIENT_ID");
   const redirectUri = requireEnv("SLACK_OAUTH_REDIRECT_URI");
+  const teamId = process.env.SLACK_TEAM_ID;
   const state = makeState(profileId);
 
   const scopes = "channels:read,chat:write,commands,groups:read";
@@ -68,7 +69,11 @@ export function buildSlackOAuthStartUrl(profileId: string): string {
   url.searchParams.set("scope", scopes);
   url.searchParams.set("state", state);
 
-  logIntegration("slack_oauth_start_url_created", { profileId, scopes });
+  if (teamId) {
+    url.searchParams.set("team", teamId);
+  }
+
+  logIntegration("slack_oauth_start_url_created", { profileId, scopes, teamId });
   return url.toString();
 }
 

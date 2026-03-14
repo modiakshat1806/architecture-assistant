@@ -20,7 +20,7 @@ export async function generateJSONResponse<T>(
     ai = new GoogleGenAI({ apiKey });
   }
 
-  // CRITICAL: gemini-3 does not exist yet. Using gemini-2.5-flash for speed & stability.
+  // CRITICAL: gemini-3 does not exist yet. Using gemini-1.5-flash for speed & stability.
   const model = "gemini-2.5-flash";
 
   let parts = [];
@@ -47,7 +47,14 @@ export async function generateJSONResponse<T>(
       });
 
       if (!response.text) throw new Error("No text returned from Gemini");
-      return JSON.parse(response.text) as T;
+
+      let cleanText = response.text.trim();
+      // Remove markdown code blocks if present (sometimes flash models still wrap even with mime-type)
+      if (cleanText.startsWith("```")) {
+        cleanText = cleanText.replace(/^```json\n?/, "").replace(/```$/, "").trim();
+      }
+
+      return JSON.parse(cleanText) as T;
 
     } catch (error: any) {
       // LOG ERROR DETAILS TO TERMINAL
@@ -63,10 +70,11 @@ export async function generateJSONResponse<T>(
 
       const isRateLimit = status === 429;
       const isOverloaded = status === 503;
+      const isSyntaxError = error instanceof SyntaxError || error.name === "SyntaxError" || message.includes("JSON");
 
-      if ((isRateLimit || isOverloaded) && attempt < retries) {
-        const delay = attempt * 5000; // Wait 5s, then 10s, then 15s
-        console.warn(`⚠️ Gemini API busy (${status}). Retrying in ${delay / 1000}s...`);
+      if ((isRateLimit || isOverloaded || isSyntaxError) && attempt < retries) {
+        const delay = isSyntaxError ? 2000 : attempt * 5000;
+        console.warn(`⚠️ Gemini API ${isSyntaxError ? "gave malformed JSON" : "busy (" + status + ")"}. Retrying in ${delay / 1000}s...`);
         await sleep(delay);
       } else {
         throw error;

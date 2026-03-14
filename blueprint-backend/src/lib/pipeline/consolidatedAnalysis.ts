@@ -12,10 +12,11 @@ const consolidatedAnalysisSchema: Schema = {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
+          title: { type: Type.STRING },
           description: { type: Type.STRING },
           severity: { type: Type.STRING }
         },
-        required: ["id", "description", "severity"]
+        required: ["id", "title", "description", "severity"]
       }
     },
     healthScore: {
@@ -59,10 +60,11 @@ const consolidatedAnalysisSchema: Schema = {
         properties: {
           id: { type: Type.STRING },
           ambiguityId: { type: Type.STRING },
+          title: { type: Type.STRING },
           question: { type: Type.STRING },
           options: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
-        required: ["id", "ambiguityId", "question", "options"]
+        required: ["id", "ambiguityId", "title", "question", "options"]
       }
     }
   },
@@ -72,11 +74,26 @@ const consolidatedAnalysisSchema: Schema = {
 const CONSOLIDATED_ANALYSIS_PROMPT = `
 You are an expert Product Manager and Systems Architect. Your task is to perform a comprehensive analysis of the provided PRD.
 
-1. **Detect Ambiguities**: Identify unclear or missing requirements.
-2. **Score PRD Health**: Evaluate technical readiness (0-100) and list core issues.
-3. **Extract Features**: Group requirements into broad, cohesive high-level modules.
-4. **Generate User Stories**: Convert features into detailed stories with acceptance criteria. Limit to 1-2 dense stories per feature. Link them to feature IDs.
-5. **Generate Clarification Questions**: For each ambiguity, provide a question for the user with 3-4 options.
+1. **Detect Ambiguities**: Identify parts of the PRD that are vague, contradictory, or open to multiple technical interpretations. 
+   - **Title**: Provide a short (3-5 words) precise title for the ambiguity.
+   - **Description**: Explain the exact part of the text that is ambiguous.
+
+2. **Identify Missing Requirements**: Identify critical features, technical specs, or edge cases that are completely omitted but necessary for a production-ready system.
+   - **Title**: Provide a short (3-5 words) precise title for what is missing.
+   - **Description**: Explain why this is needed.
+   - these should be returned in the 'clarifications' array.
+
+3. **Score PRD Health**: Evaluate technical readiness (0-100) and list core issues.
+
+4. **Extract Features**: Group requirements into broad, cohesive high-level modules.
+
+5. **Generate User Stories**: Convert features into detailed stories with acceptance criteria. Limit to 1-2 dense stories per feature. Link them to feature IDs.
+
+6. **Generate Clarification Questions**: For each item in 'clarifications' (missing requirements) or 'ambiguities', provide a question for the user with 3-4 options.
+
+**CRITICAL DIFFERENTIATION**: 
+- **Ambiguities** are about *existing text* that isn't clear.
+- **Missing Requirements** (clarifications) are about *missing functionality* or *missing details* that aren't mentioned at all.
 
 Return the result strictly in the provided JSON format.
 `;

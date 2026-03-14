@@ -66,38 +66,44 @@ export default function Overview() {
         if (parsed.traceability && Object.keys(parsed.traceability).length > 0) generatedModules++;
         if (parsed.devops && Object.keys(parsed.devops).length > 0) generatedModules++;
 
-        const calculatedCompleteness = Math.round((generatedModules / expectedModules) * 100) || 0;
+        const healthScore = parsed.healthScore?.score || 0;
+        const ambiguityPenalty = (aiAmbiguities.length * 0.1); // Deduct 0.1% per ambiguity
+        const moduleProgress = (generatedModules / expectedModules) * 100;
+        
+        // Completeness is a blend of module progress and health, penalized by ambiguities
+        const calculatedCompleteness = Math.max(0, Math.min(100, Math.round(
+          (moduleProgress * 0.6) + (healthScore * 0.4) - ambiguityPenalty
+        ))) || 0;
 
         // Dynamic metrics based on AI output
         const totalTasks = aiTasks.length;
         const calculatedComplexity = totalTasks > 50 ? "High" : totalTasks > 20 ? "Medium" : "Low";
         const estimatedWeeks = Math.max(1, Math.ceil(totalTasks / 15)); // Assuming 15 tasks/week
 
-        // Safely format features (handling both string and object responses from Gemini)
+        // Safely format features using actual counts from stories and tasks
         const formattedFeatures = aiFeatures.map((f: any, i: number) => {
-          if (typeof f === 'string') {
-            return {
-              id: `feat-${i}`,
-              name: f,
-              stories: Math.max(1, Math.floor(aiStories.length / aiFeatures.length)), // Estimate distribution
-              tasks: Math.max(1, Math.floor(aiTasks.length / aiFeatures.length)),
-              complexity: "Medium"
-            };
-          }
+          const featureId = typeof f === 'string' ? `feat-${i}` : (f.id || `feat-${i}`);
+          const featureName = typeof f === 'string' ? f : (f.title || f.name || "Untitled Feature");
+          
+          // Filter stories linked to this feature
+          const featureStories = aiStories.filter((s: any) => s.featureId === featureId);
+          // Filter tasks linked to this feature
+          const featureTasks = aiTasks.filter((t: any) => t.featureId === featureId);
+
           return {
-            id: f.id || `feat-${i}`,
-            name: f.title || f.name || "Untitled Feature",
-            stories: f.stories?.length || f.storyCount || Math.max(1, Math.floor(aiStories.length / aiFeatures.length)),
-            tasks: f.tasks?.length || f.taskCount || Math.max(1, Math.floor(aiTasks.length / aiFeatures.length)),
-            complexity: f.complexity || "Medium"
+            id: featureId,
+            name: featureName,
+            stories: featureStories.length || (typeof f === 'object' ? f.storyCount : 0) || 0,
+            tasks: featureTasks.length || (typeof f === 'object' ? f.taskCount : 0) || 0,
+            complexity: (typeof f === 'object' && f.complexity) ? f.complexity : "Medium"
           };
         });
 
         setData({
           name: parsed.projectName || "Untitled Project",
           description: "AI-generated architecture roadmap based on your uploaded PRD requirements. The pipeline has successfully extracted features, stories, and engineering tasks.",
-          healthScore: parsed.healthScore?.score || 0,
-          completeness: calculatedCompleteness, // Dynamic completeness score based on generated modules
+          healthScore: healthScore,
+          completeness: calculatedCompleteness, // Dynamic completeness score based on health and modules
           complexity: calculatedComplexity,
           timeline: `${estimatedWeeks} Weeks`,
           features: formattedFeatures,

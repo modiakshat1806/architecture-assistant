@@ -32,9 +32,11 @@ const consolidatedImplementationSchema: Schema = {
             properties: {
               id: { type: Type.STRING },
               label: { type: Type.STRING },
-              type: { type: Type.STRING }
+              type: { type: Type.STRING },
+              description: { type: Type.STRING },
+              tech: { type: Type.STRING }
             },
-            required: ["id", "label", "type"]
+            required: ["id", "label", "type", "description", "tech"]
           }
         },
         edges: {
@@ -79,10 +81,15 @@ const consolidatedImplementationSchema: Schema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          taskId: { type: Type.STRING },
-          tests: { type: Type.ARRAY, items: { type: Type.STRING } }
+          id: { type: Type.STRING },
+          method: { type: Type.STRING },
+          endpoint: { type: Type.STRING },
+          description: { type: Type.STRING },
+          expected: { type: Type.STRING },
+          status: { type: Type.STRING },
+          category: { type: Type.STRING }
         },
-        required: ["taskId", "tests"]
+        required: ["id", "method", "endpoint", "description", "expected", "status", "category"]
       }
     }
   },
@@ -93,10 +100,19 @@ const CONSOLIDATED_IMPLEMENTATION_PROMPT = `
 You are a Lead Software Architect and DevOps Engineer. Based on the provided PRD features and user stories, generate a full technical implementation plan.
 
 1. **Generate Tasks**: Break stories into technical backend, frontend, database, and infrastructure tasks.
-2. **Architecture**: Design a system architecture with nodes (frontend, api, database, etc.) and edges.
+2. **Architecture**: Design a system architecture with nodes (frontend, api, database, etc.) and edges. For each node, provide a comprehensive description of its responsibility and a specific technology stack recommendation (e.g., Node.js/Express, PostgreSQL, Redis).
 3. **DevOps**: Provide a Dockerfile, GitHub Actions CI/CD setup, and deployment steps.
 4. **Code Structure**: Generate core boilerplate files (flat list with path, name, language, content).
-5. **Tests**: Generate QA test plans for the tasks.
+5. **Tests**: Generate comprehensive test cases. For each test, provide:
+   - id: unique string
+   - method: HTTP method (GET, POST, etc.) or "UNIT"
+   - endpoint: API endpoint or file name
+   - description: What is being tested
+   - expected: Expected result
+   - status: "pass", "fail", or "edge"
+   - category: "functional", "edge", "negative", or "unit"
+   
+Ensure you generate multiple tests covering all four categories.
 
 Return the result strictly in the provided JSON format.
 `;

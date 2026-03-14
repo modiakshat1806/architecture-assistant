@@ -17,6 +17,8 @@ type Message = {
 export default function Chat() {
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
 
@@ -29,24 +31,24 @@ export default function Chat() {
   */
 
   useEffect(() => {
-
     const raw = localStorage.getItem("blueprint_project_data");
-
     if (!raw) return;
 
     const data = JSON.parse(raw);
-
     const clarifications = data.clarifications || [];
+    setQuestions(clarifications);
 
-    const aiMessages: Message[] = clarifications.map((q: any, i: number) => ({
-      id: "ai-" + i,
-      role: "ai",
-      content: q.question || q,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    }));
-
-    setMessages(aiMessages);
-
+    // Only show the FIRST question initially
+    if (clarifications.length > 0) {
+      const firstQ = clarifications[0];
+      const initialMsg: Message = {
+        id: "ai-0",
+        role: "ai",
+        content: firstQ.question || firstQ,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      };
+      setMessages([initialMsg]);
+    }
   }, []);
 
   /*
@@ -69,16 +71,15 @@ export default function Chat() {
   ===============================
   */
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
-
+  const handleSendMessage = async (e?: React.FormEvent, customValue?: string) => {
     e?.preventDefault();
-
-    if (!inputValue.trim()) return;
+    const content = customValue || inputValue;
+    if (!content.trim()) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: inputValue,
+      content: content,
       timestamp: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
@@ -89,60 +90,45 @@ export default function Chat() {
     setInputValue("");
     setIsTyping(true);
 
-    try {
-
-      const raw = localStorage.getItem("blueprint_project_data");
-
-      const context = raw ? JSON.parse(raw) : {};
-
-      const response = await fetch("http://localhost:5000/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: userMsg.content,
-          context
-        })
-      });
-
-      const data = await response.json();
-
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: data.reply || "AI response unavailable.",
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      };
-
-      setMessages((prev) => [...prev, aiMsg]);
-
-    } catch (err) {
-
-      const fallbackMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: "⚠️ Backend unavailable or API key exhausted.",
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      };
-
-      setMessages((prev) => [...prev, fallbackMsg]);
-
-    }
-
-    setIsTyping(false);
-
+    // Simulate a brief delay for AI "thought"
+    setTimeout(() => {
+      const nextIndex = currentIndex + 1;
+      
+      if (nextIndex < questions.length) {
+        const nextQ = questions[nextIndex];
+        const aiMsg: Message = {
+          id: Date.now().toString(),
+          role: "ai",
+          content: nextQ.question || nextQ,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+        setCurrentIndex(nextIndex);
+      } else {
+        // Fallback to API if all predefined questions are answered
+        const aiMsg: Message = {
+          id: Date.now().toString(),
+          role: "ai",
+          content: "Thank you! I've collected all the clarifications needed for the PRD.",
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      }
+      setIsTyping(false);
+    }, 1000);
   };
 
   const handleChipClick = (text: string) => {
-    setInputValue(text);
+    handleSendMessage(undefined, text);
   };
+
+  const currentOptions = questions[currentIndex]?.options || []
 
   return (
 
@@ -172,7 +158,9 @@ export default function Chat() {
           <CardHeader className="border-b border-zinc-800 bg-zinc-950/50">
 
             <CardTitle className="text-white text-sm flex items-center gap-2">
-              <Bot className="w-5 h-5 text-primary" />
+              <div className="w-6 h-6 flex items-center justify-center rounded-full border border-amber-500 bg-amber-500/10">
+                <span className="text-amber-500 font-bold text-[10px]">B</span>
+              </div>
               Blueprint AI Architect
             </CardTitle>
 
@@ -186,38 +174,32 @@ export default function Chat() {
           >
 
             {messages.map((msg) => (
-
               <div
                 key={msg.id}
                 className={`flex gap-4 max-w-[85%] ${msg.role === "user"
-                    ? "ml-auto flex-row-reverse"
-                    : ""
+                  ? "ml-auto flex-row-reverse"
+                  : ""
                   }`}
               >
-
-                <Avatar className="w-8 h-8 border border-zinc-700">
-
-                  {msg.role === "ai"
-                    ? <Bot className="w-5 h-5 m-auto text-primary" />
-                    : <AvatarImage src="https://github.com/shadcn.png" />}
-
-                  <AvatarFallback>
-                    {msg.role === "ai" ? "AI" : "U"}
-                  </AvatarFallback>
-
-                </Avatar>
+                <div className={`w-8 h-8 flex items-center justify-center rounded-full border ${msg.role === "ai" ? "border-amber-500 bg-amber-500/10" : "border-zinc-700 bg-zinc-800"
+                  }`}>
+                  {msg.role === "ai" ? (
+                    <span className="text-amber-500 font-bold text-sm">B</span>
+                  ) : (
+                    <span className="text-zinc-400 text-xs">U</span>
+                  )}
+                </div>
 
                 <div
                   className={`flex flex-col ${msg.role === "user"
-                      ? "items-end"
-                      : "items-start"
+                    ? "items-end"
+                    : "items-start"
                     }`}
                 >
-
                   <div
                     className={`px-4 py-3 rounded-2xl text-sm leading-relaxed
                     ${msg.role === "user"
-                        ? "bg-primary text-white"
+                        ? "bg-orange-600 text-white shadow-lg shadow-orange-900/20"
                         : "bg-zinc-800 text-zinc-200 border border-zinc-700"
                       }`}
                   >
@@ -227,55 +209,41 @@ export default function Chat() {
                   <span className="text-[10px] text-zinc-500 mt-1">
                     {msg.timestamp}
                   </span>
-
                 </div>
-
               </div>
-
             ))}
 
             {isTyping && (
-
               <div className="flex gap-4">
-
-                <Avatar className="w-8 h-8 border border-zinc-700">
-                  <AvatarFallback>AI</AvatarFallback>
-                </Avatar>
-
-                <div className="bg-zinc-800 border border-zinc-700 px-4 py-3 rounded-xl text-zinc-400 text-sm">
-                  AI thinking...
+                <div className="w-8 h-8 flex items-center justify-center rounded-full border border-amber-500 bg-amber-500/10">
+                  <span className="text-amber-500 font-bold text-sm">B</span>
                 </div>
-
+                <div className="bg-zinc-800 border border-zinc-700 px-4 py-3 rounded-xl text-zinc-400 text-sm italic">
+                  Bot is typing...
+                </div>
               </div>
-
             )}
 
           </CardContent>
 
           {/* QUICK SUGGESTIONS */}
 
-          <div className="px-6 pb-2 pt-2 bg-zinc-900 flex flex-wrap gap-2">
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                handleChipClick("Let's implement a retry queue for webhook failures.")
-              }
-            >
-              Suggest: Add retry queue
-            </Button>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                handleChipClick("Stripe built-in retries are sufficient for MVP.")
-              }
-            >
-              Suggest: Use Stripe retries
-            </Button>
-
+          <div className="px-6 pb-4 pt-2 bg-zinc-900 flex flex-wrap gap-2">
+            {(currentOptions.length > 0 ? currentOptions.slice(0, 3) : [
+              "I'll provide more details shortly.",
+              "That sounds like a good approach.",
+              "Let's stick with the current plan."
+            ]).map((option: string, i: number) => (
+              <Button
+                key={i}
+                size="sm"
+                variant="secondary"
+                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 rounded-full px-4"
+                onClick={() => handleChipClick(option)}
+              >
+                {option}
+              </Button>
+            ))}
           </div>
 
           {/* INPUT */}
@@ -314,4 +282,3 @@ export default function Chat() {
     </DashboardLayout>
   )
 }
-

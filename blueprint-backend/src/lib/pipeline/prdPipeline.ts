@@ -68,13 +68,18 @@ export async function runPrdPipeline(documentPart: any): Promise<any> {
 function buildFileTree(files: any[]): any[] {
   const root: any[] = [];
   files.forEach(file => {
+    if (!file.path) return;
     const parts = file.path.split('/');
     let currentLevel = root;
     parts.forEach((part: string, index: number) => {
       const isFile = index === parts.length - 1;
       let existingNode = currentLevel.find(n => n.name === part);
+      
       if (existingNode) {
-        if (!isFile) currentLevel = existingNode.children;
+        if (!isFile) {
+          if (!existingNode.children) existingNode.children = [];
+          currentLevel = existingNode.children;
+        }
       } else {
         const newNode: any = {
           path: parts.slice(0, index + 1).join('/'),
@@ -82,8 +87,8 @@ function buildFileTree(files: any[]): any[] {
           type: isFile ? 'file' : 'folder'
         };
         if (isFile) {
-          newNode.language = file.language;
-          newNode.content = file.content;
+          newNode.language = file.language || 'text';
+          newNode.content = file.content || '';
         } else {
           newNode.children = [];
         }
@@ -93,4 +98,4 @@ function buildFileTree(files: any[]): any[] {
     });
   });
   return root;
-}
+}

@@ -10,6 +10,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { FileText, ListTodo, Zap, Clock, Network, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 
+import { jsPDF } from "jspdf";
+
 interface ParsedData {
   projectName: string;
   features: any[];
@@ -121,6 +123,120 @@ export default function Analysis() {
   const estimatedWeeks = Math.max(1, Math.ceil(totalTasks / 15));
   const overallComplexity = totalTasks > 50 ? "High" : totalTasks > 20 ? "Medium" : "Low";
 
+  const handleExport = () => {
+    try {
+      toast({ title: "Exporting Report", description: "Generating PDF analysis report..." });
+
+      const doc = new jsPDF();
+      let yPos = 20;
+
+      // Helper for clean text wrapping
+      const addWrappedText = (text: string, x: number, y: number, maxWidth: number) => {
+        const lines = doc.splitTextToSize(text, maxWidth);
+        doc.text(lines, x, y);
+        return y + (lines.length * 7);
+      };
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(249, 115, 22); // Primary orange
+      doc.text("Project Blueprint Analysis", 20, yPos);
+      yPos += 12;
+
+      doc.setFontSize(14);
+      doc.setTextColor(100, 100, 100);
+      doc.text(data.projectName, 20, yPos);
+      yPos += 15;
+
+      // Metrics Summary
+      doc.setDrawColor(230, 230, 230);
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, yPos, 170, 30, 'F');
+      
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`Health Score: ${data.healthScore.score}/100`, 30, yPos + 12);
+      doc.text(`Estimated Timeline: ~${estimatedWeeks} Weeks`, 30, yPos + 20);
+      doc.text(`Complexity: ${overallComplexity}`, 100, yPos + 12);
+      doc.text(`Total Tasks: ${totalTasks}`, 100, yPos + 20);
+      yPos += 45;
+
+      // Section: Features
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Extracted Features", 20, yPos);
+      yPos += 10;
+      
+      extractedFeatures.forEach((f) => {
+        if (yPos > 260) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`• ${f.title}`, 20, yPos);
+        yPos += 7;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        yPos = addWrappedText(f.description, 25, yPos, 160);
+        yPos += 5;
+      });
+      yPos += 10;
+
+      // Section: Ambiguities
+      if (detectedAmbiguities.length > 0) {
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(16);
+        doc.text("Detected Ambiguities", 20, yPos);
+        yPos += 10;
+        
+        detectedAmbiguities.forEach((a) => {
+          if (yPos > 260) { doc.addPage(); yPos = 20; }
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text(`! [${a.severity}] ${a.title}`, 20, yPos);
+          yPos += 6;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          yPos = addWrappedText(a.description, 25, yPos, 160);
+          yPos += 5;
+        });
+        yPos += 10;
+      }
+
+      // Section: Missing Reqs
+      if (missingRequirements.length > 0) {
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(16);
+        doc.text("Clarifications Needed", 20, yPos);
+        yPos += 10;
+        
+        missingRequirements.forEach((m) => {
+          if (yPos > 260) { doc.addPage(); yPos = 20; }
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text(`? ${m.title}`, 20, yPos);
+          yPos += 6;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          yPos = addWrappedText(m.description, 25, yPos, 160);
+          yPos += 5;
+        });
+      }
+
+      doc.save(`${data.projectName.replace(/\s+/g, '-').toLowerCase()}-analysis.pdf`);
+
+      toast({
+        title: "Export Success",
+        description: "Your report has been downloaded."
+      });
+    } catch (err) {
+      console.error("Export error", err);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: "Could not generate PDF report."
+      });
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -132,7 +248,7 @@ export default function Analysis() {
           <Button
             variant="outline"
             className="bg-orange-600 border-orange-700 text-white hover:bg-orange-700"
-            onClick={() => toast({ title: "Exporting Report", description: "Generating PDF analysis report..." })}
+            onClick={handleExport}
           >
             Export Report
           </Button>
@@ -163,10 +279,10 @@ export default function Analysis() {
                 <Accordion type="single" collapsible className="w-full">
                   {extractedFeatures.map((feature) => (
                     <AccordionItem key={feature.id} value={feature.id} className="border-zinc-800">
-                      <AccordionTrigger className="text-white hover:text-primary hover:no-underline">
+                      <AccordionTrigger className="text-white hover:text-primary hover:no-underline py-4">
                         <div className="flex items-center gap-3 text-left">
                           <CheckCircle2 className="w-4 h-4 text-green-500 hidden sm:block shrink-0" />
-                          <span>{feature.title}</span>
+                          <span className="font-semibold">{feature.title}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="text-zinc-400">
@@ -209,10 +325,10 @@ export default function Analysis() {
                 <Accordion type="single" collapsible className="w-full">
                   {detectedAmbiguities.map((ambiguity) => (
                     <AccordionItem key={ambiguity.id} value={ambiguity.id} className="border-zinc-800">
-                      <AccordionTrigger className="text-white hover:text-amber-400 hover:no-underline">
+                      <AccordionTrigger className="text-white hover:text-amber-400 hover:no-underline py-4">
                         <div className="flex items-center gap-3 text-left">
                           <AlertCircle className="w-4 h-4 text-amber-500 hidden sm:block shrink-0" />
-                          <span>{ambiguity.title}</span>
+                          <span className="font-semibold">{ambiguity.title}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="text-zinc-400">
@@ -252,16 +368,16 @@ export default function Analysis() {
                 <Accordion type="single" collapsible className="w-full">
                   {missingRequirements.map((req) => (
                     <AccordionItem key={req.id} value={req.id} className="border-zinc-800">
-                      <AccordionTrigger className="text-white hover:text-red-400 hover:no-underline">
+                      <AccordionTrigger className="text-white hover:text-red-400 hover:no-underline py-4">
                         <div className="flex items-center gap-3 text-left">
                           <div className="w-4 h-4 rounded-full bg-red-500/20 border border-red-500/30 flex-shrink-0" />
-                          <span>{req.title}</span>
+                          <span className="font-semibold">{req.title}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="text-zinc-400">
                         <p className="mb-4 leading-relaxed">{req.description}</p>
                         <div className="flex items-center gap-2 text-xs bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-800 w-fit">
-                          <span className="text-zinc-500">Related Feature:</span>
+                          <span className="text-zinc-500">Related Area:</span>
                           <span className="text-white font-medium">{req.feature}</span>
                         </div>
                       </AccordionContent>

@@ -105,53 +105,45 @@ export default function Dashboard() {
   // Fetch activities for all projects
   useEffect(() => {
     const fetchAllActivities = async () => {
-      const dbProjectIds = projects.filter(p => !p.isLocal).map(p => p.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       let allActivities: any[] = [];
 
-      for (const id of dbProjectIds) {
+      try {
+        // 1. Fetch from backend
+        const res = await fetch(`http://localhost:5000/api/activities?profileId=${user.id}`);
+        const dbData = await res.json();
+        if (Array.isArray(dbData)) {
+          allActivities = [...dbData];
+        }
+      } catch (e) {
+        console.error("Error fetching activities from backend", e);
+      }
+
+      // 2. Merge from local storage (for unsaved/current session work)
+      const localActivitiesRaw = localStorage.getItem("blueprint_local_activities");
+      if (localActivitiesRaw) {
         try {
-          const res = await fetch(`http://localhost:5000/api/projects/${id}/activities`);
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            const projectName = projects.find(p => p.id === id)?.name || "Project";
-            allActivities = [...allActivities, ...data.map(a => ({ ...a, projectName }))];
+          const localData = JSON.parse(localActivitiesRaw);
+          if (Array.isArray(localData)) {
+            // Deduplicate (in case some were already synced but still in local storage)
+            const dbIds = new Set(allActivities.map(a => a.id));
+            const uniqueLocal = localData.filter(la => !dbIds.has(la.id));
+            allActivities = [...allActivities, ...uniqueLocal];
           }
         } catch (e) {
-          console.error("Error fetching activities", e);
+          console.error("Error parsing local activities", e);
         }
       }
 
-      if (projects.some(p => p.isLocal)) {
-        const localProject = projects.find(p => p.isLocal);
-        
-        // FETCH FROM LOCAL STORAGE
-        const localActivitiesRaw = localStorage.getItem("blueprint_local_activities");
-        const localActivities = localActivitiesRaw ? JSON.parse(localActivitiesRaw) : [];
-        
-        // Fallback for first-time session
-        const defaultLocalActivities = [
-          {
-            id: 'local-1',
-            type: 'ANALYSIS_COMPLETED',
-            description: "Final architecture analysis ready.",
-            projectName: localProject.name,
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'local-2',
-            type: 'PRD_UPLOADED',
-            description: "Initial PRD interpreted.",
-            projectName: localProject.name,
-            createdAt: new Date(Date.now() - 120000).toISOString()
-          }
-        ];
-
-        const combinedLocal = localActivities.length > 0 ? localActivities : defaultLocalActivities;
-        allActivities = [...combinedLocal, ...allActivities];
-      }
-
-      allActivities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setActivities(allActivities.slice(0, 10)); // Top 10
+      // 3. Filter for "Current Session" - activities from the last 24 hours
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const sessionActivities = allActivities
+        .filter(a => new Date(a.createdAt) > oneDayAgo)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      setActivities(sessionActivities.slice(0, 10)); // Top 10 for dashboard
     };
 
     if (projects.length > 0) {
@@ -188,6 +180,15 @@ export default function Dashboard() {
         toast({ title: "Opening PRD", description: "Locating PDF file..." });
         const res = await fetch(`http://localhost:5000/api/projects/${targetId}/latest-prd`);
         const data = await res.json();
+        
+        if (!res.ok) {
+           if (res.status === 404 && data.error === "PDF not found") {
+             toast({ variant: "destructive", title: "PDF Not Found", description: "This is an older project without a saved PDF. Please update/upload the PRD again to view it." });
+             return;
+           }
+           throw new Error(data.error || "Unknown error");
+        }
+
         if (data.fileUrl) {
           window.open(data.fileUrl, '_blank');
         } else {
@@ -300,22 +301,11 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mt-4">
+                  <div className="mt-4">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2 h-8 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePRDAction(project, "View PRD");
-                      }}
-                    >
-                      <Eye className="w-3 h-3" /> View PRD
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2 h-8 text-xs"
+                      className="w-full bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2 h-8 text-xs"
                       onClick={(e) => {
                         e.stopPropagation();
                         handlePRDAction(project, "Update PRD");

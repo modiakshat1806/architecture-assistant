@@ -30,6 +30,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { initialTraceNodes, initialTraceEdges, markerEnd } from "@/data/traceabilityData";
+import { jsPDF } from "jspdf";
 
 // ==========================================
 // CUSTOM TRACEABILITY NODE
@@ -322,7 +323,124 @@ export default function Traceability() {
   };
 
   const handleExport = () => {
-    toast({ title: "Exporting Report", description: "Generating traceability and compliance PDF..." });
+    try {
+      toast({ title: "Exporting Report", description: "Generating traceability and compliance PDF..." });
+      
+      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for traceability matrix
+      let yPos = 20;
+
+      // Helper for clean text wrapping
+      const addWrappedText = (text: string, x: number, y: number, maxWidth: number) => {
+        const lines = doc.splitTextToSize(text, maxWidth);
+        doc.text(lines, x, y);
+        return y + (lines.length * 7);
+      };
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(249, 115, 22); // Primary orange
+      doc.text("Requirement Traceability Matrix", 20, yPos);
+      yPos += 12;
+
+      doc.setFontSize(14);
+      doc.setTextColor(100, 100, 100);
+      const projectName = JSON.parse(localStorage.getItem("blueprint_project_data") || "{}").projectName || "Project";
+      doc.text(projectName, 20, yPos);
+      yPos += 20;
+
+      // Table Header
+      doc.setDrawColor(82, 82, 91);
+      doc.setFillColor(24, 24, 27);
+      doc.rect(20, yPos, 257, 10, 'F');
+      
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text("Requirement (Feature)", 25, yPos + 7);
+      doc.text("Technical Service", 90, yPos + 7);
+      doc.text("API Endpoint", 150, yPos + 7);
+      doc.text("Implementation Task", 210, yPos + 7);
+      yPos += 15;
+
+      doc.setTextColor(50, 50, 50);
+      doc.setFont("helvetica", "normal");
+
+      // Generate Table Rows based on current nodes/edges structure
+      const requirements = nodes.filter(n => n.data.type === 'requirement');
+      
+      requirements.forEach((req) => {
+        const connectedEdges = edges.filter(e => e.source === req.id);
+        
+        connectedEdges.forEach((edgeS) => {
+          const service = nodes.find(n => n.id === edgeS.target);
+          if (!service) return;
+
+          const apiEdges = edges.filter(e => e.source === service.id);
+          
+          apiEdges.forEach((edgeA) => {
+            const api = nodes.find(n => n.id === edgeA.target);
+            if (!api) return;
+
+            const taskEdges = edges.filter(e => e.source === api.id);
+            
+            taskEdges.forEach((edgeT) => {
+              const task = nodes.find(n => n.id === edgeT.target);
+              if (!task) return;
+
+              if (yPos > 180) {
+                doc.addPage();
+                yPos = 20;
+                // Redraw Header on new page
+                doc.setFillColor(24, 24, 27);
+                doc.rect(20, yPos, 257, 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFont("helvetica", "bold");
+                doc.text("Requirement (Feature)", 25, yPos + 7);
+                doc.text("Technical Service", 90, yPos + 7);
+                doc.text("API Endpoint", 150, yPos + 7);
+                doc.text("Implementation Task", 210, yPos + 7);
+                yPos += 15;
+                doc.setTextColor(50, 50, 50);
+                doc.setFont("helvetica", "normal");
+              }
+
+              doc.setFontSize(9);
+              // Wrap text for columns
+              const reqLines = doc.splitTextToSize(req.data.label, 60);
+              const svcLines = doc.splitTextToSize(service.data.label, 55);
+              const apiLines = doc.splitTextToSize(`${api.data.method} ${api.data.endpoint}`, 55);
+              const taskLines = doc.splitTextToSize(task.data.label, 65);
+
+              const rowHeight = Math.max(reqLines.length, svcLines.length, apiLines.length, taskLines.length) * 5 + 5;
+
+              doc.text(reqLines, 25, yPos);
+              doc.text(svcLines, 90, yPos);
+              doc.text(apiLines, 150, yPos);
+              doc.text(taskLines, 210, yPos);
+
+              doc.setDrawColor(230, 230, 230);
+              doc.line(20, yPos + rowHeight - 2, 277, yPos + rowHeight - 2);
+
+              yPos += rowHeight;
+            });
+          });
+        });
+      });
+
+      doc.save(`${projectName.replace(/\s+/g, '-').toLowerCase()}-traceability.pdf`);
+
+      toast({
+        title: "Export Success",
+        description: "Traceability matrix has been downloaded."
+      });
+    } catch (err) {
+      console.error("Export error", err);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: "Could not generate PDF matrix."
+      });
+    }
   };
 
   return (
