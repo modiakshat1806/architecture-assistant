@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Profile {
+  id        String    @id @db.Uuid
+  email     String    @unique
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  projects  Project[]
+  githubConnection GitHubConnection?
+  slackIntegration SlackIntegration?
+}
+
+model Project {
+  id          String       @id @default(uuid()) @db.Uuid
+  profileId   String       @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  prdVersions PrdVersion[]
+  githubRepo  GitHubRepoMapping?
+}
+
+model PrdVersion {
+  id             String    @id @default(uuid()) @db.Uuid
+  projectId      String    @db.Uuid
+  versionNumber  Int       
+  fileUrl        String?   
+  parsedText     String    @db.Text
+  createdAt      DateTime  @default(now())
+
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  analysis       PipelineAnalysis? 
+}
+
+model PipelineAnalysis {
+  id             String     @id @default(uuid()) @db.Uuid
+  prdVersionId   String     @unique @db.Uuid
+  
+  features       Json       @default("[]")
+  stories        Json       @default("[]")
+  tasks          Json       @default("[]")
+  sprints        Json       @default("[]")
+  architecture   String?    @db.Text
+  codeStructure  Json       @default("[]")
+  tests          Json       @default("[]")
+  traceability   Json       @default("{}")
+  ambiguities    Json       @default("[]")
+  clarifications Json       @default("[]")
+  healthScore    Json       @default("{}")
+  devops         Json       @default("{}")
+  
+  changeImpact   Json?
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  prdVersion     PrdVersion @relation(fields: [prdVersionId], references: [id], onDelete: Cascade)
+}
+model ClarificationAnswer {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  question   String
+  answer     String
+  createdAt  DateTime @default(now())
+}
+
+model GitHubConnection {
+  id                   String   @id @default(uuid()) @db.Uuid
+  profileId            String   @unique @db.Uuid
+  githubUserId         Int
+  username             String
+  accessTokenEncrypted String   @db.Text
+  scope                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  profile              Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  repos                GitHubRepoMapping[]
+
+  @@unique([githubUserId, username])
+}
+
+model GitHubRepoMapping {
+  id                 String   @id @default(uuid()) @db.Uuid
+  projectId          String   @unique @db.Uuid
+  githubConnectionId String   @db.Uuid
+  owner              String
+  repo               String
+  fullName           String   @unique
+  webhookId          Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  githubConnection   GitHubConnection @relation(fields: [githubConnectionId], references: [id], onDelete: Cascade)
+}
+
+// ── Slack Integration ────────────────────────────────────────
+
+model SlackIntegration {
+  id                String   @id @default(uuid()) @db.Uuid
+  profileId         String   @unique @db.Uuid
+  workspaceId       String
+  workspaceName     String?
+  botTokenEncrypted String   @db.Text
+  scope             String?
+  channelId         String?
+  channelName       String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  profile           Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  channels          SlackChannel[]
+  eventLogs         SlackEventLog[]
+}
+
+model SlackChannel {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slackIntegrationId String   @db.Uuid
+  slackChannelId     String
+  name               String
+  isSelected         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  integration        SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([slackIntegrationId, slackChannelId])
+}
+
+model SlackEventLog {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slackIntegrationId String   @db.Uuid
+  eventType          String
+  payload            Json     @default("{}")
+  status             String   @default("sent")
+  errorMessage       String?
+  createdAt          DateTime @default(now())
+
+  integration        SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
+}
